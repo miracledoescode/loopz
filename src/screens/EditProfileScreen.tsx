@@ -14,13 +14,12 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { doc, setDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { useNavigation } from '@react-navigation/native';
-import { db, firebaseApp } from '@/config/firebase';
+import { db, auth } from '@/config/firebase';
 import { useAppStore } from '@/store/useAppStore';
 import { colors, fonts, spacing, radii, shadows } from '@/theme';
 import { SPRING_BOUNCY, PRESS_SCALE } from '@/theme/animations';
 import type { Role, EnergyWindow } from '@/types';
+import { useNavigation } from '@react-navigation/native';
 
 const ROLES: { value: Role; emoji: string; label: string }[] = [
   { value: 'student', emoji: '📚', label: 'Student' },
@@ -55,7 +54,7 @@ export function EditProfileScreen() {
   }));
 
   async function handleSave() {
-    const uid = getAuth(firebaseApp).currentUser?.uid;
+    const uid = auth.currentUser?.uid;
     if (!uid) return;
     const updated = { role, energyWindow, todaysWin: todaysWin || 'Make progress' };
     await setDoc(doc(db, 'users', uid), updated, { merge: true });

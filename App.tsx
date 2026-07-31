@@ -14,8 +14,8 @@ import {
   JetBrainsMono_700Bold,
 } from '@expo-google-fonts/jetbrains-mono';
 import * as SplashScreen from 'expo-splash-screen';
-import { getAuth, signInAnonymously } from 'firebase/auth';
-import { firebaseApp } from '@/config/firebase';
+import { signInAnonymously } from 'firebase/auth';
+import { firebaseApp, auth } from '@/config/firebase';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { colors } from '@/theme';
 
@@ -38,7 +38,6 @@ export default function App() {
   });
 
   useEffect(() => {
-    const auth = getAuth(firebaseApp);
     signInAnonymously(auth)
       .then(() => setAuthReady(true))
       .catch((err) => {

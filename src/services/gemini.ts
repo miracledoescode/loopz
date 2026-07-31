@@ -1,7 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { doc, setDoc, collection } from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import { getAuth } from 'firebase/auth';
+import { db, auth } from '@/config/firebase';
 import type { Task, UserProfile } from '@/types';
 
 // Ensure the key exists in .env as EXPO_PUBLIC_GEMINI_KEY
@@ -11,7 +10,7 @@ if (!apiKey) {
 }
 
 const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
 export interface RankTaskInput {
   rawText: string;
@@ -87,7 +86,6 @@ export async function rankTaskLocal(
   profile: UserProfile,
   excludedTasks: string[] = []
 ): Promise<Task> {
-  const auth = getAuth();
   if (!auth.currentUser) {
     throw new Error('Must be signed in to rank tasks');
   }

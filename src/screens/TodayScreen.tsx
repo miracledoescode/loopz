@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '@/store/useAppStore';
@@ -62,7 +62,15 @@ export function TodayScreen() {
     : '';
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -100,6 +108,18 @@ export function TodayScreen() {
       {/* Main content */}
       {!currentTask || loading ? (
         <BrainDumpInput onSubmit={handleDump} loading={loading} />
+      ) : currentTask.status === 'done' ? (
+        <Animated.View entering={FadeIn.duration(500)} style={styles.doneContainer}>
+          <Text style={styles.doneEmoji}>🎉</Text>
+          <Text style={styles.doneTitle}>Sprint Mastered!</Text>
+          <Text style={styles.doneSub}>You crushed it. Ready for the next one?</Text>
+          <Pressable 
+            style={styles.newSprintBtn}
+            onPress={() => setCurrentTask(null)}
+          >
+            <Text style={styles.newSprintBtnText}>Brain Dump Again</Text>
+          </Pressable>
+        </Animated.View>
       ) : (
         <PlanCard
           task={currentTask}
@@ -107,7 +127,8 @@ export function TodayScreen() {
           onNotThis={handleNotThis}
         />
       )}
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -115,6 +136,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: 70,
     paddingBottom: 24,
@@ -192,5 +216,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.error,
     marginLeft: spacing.md,
+  },
+  doneContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  doneEmoji: {
+    fontSize: 56,
+  },
+  doneTitle: {
+    fontFamily: fonts.heading,
+    fontSize: 28,
+    color: colors.textPrimary,
+  },
+  doneSub: {
+    fontFamily: fonts.body,
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
+  },
+  newSprintBtn: {
+    backgroundColor: colors.accent,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.pill,
+  },
+  newSprintBtnText: {
+    fontFamily: fonts.heading,
+    fontSize: 16,
+    color: colors.bg,
   },
 });

@@ -18,8 +18,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { doc, setDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { db, firebaseApp } from '@/config/firebase';
+import { db, auth } from '@/config/firebase';
 import { useAppStore } from '@/store/useAppStore';
 import { colors, fonts, spacing, radii, shadows } from '@/theme';
 import { SPRING_BOUNCY, PRESS_SCALE } from '@/theme/animations';
@@ -56,10 +55,17 @@ export function OnboardingScreen() {
   }));
 
   async function finish() {
-    const uid = getAuth(firebaseApp).currentUser?.uid;
-    if (!uid) return;
     const profile = { role, energyWindow, todaysWin: todaysWin || 'Make progress' };
-    await setDoc(doc(db, 'users', uid), profile, { merge: true });
+    // Try to persist to Firestore if user is signed in, but don't block on it
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      try {
+        await setDoc(doc(db, 'users', uid), profile, { merge: true });
+      } catch (err) {
+        console.warn('Firestore save skipped:', err);
+      }
+    }
+    // Always set profile locally so the app proceeds
     setProfile(profile);
   }
 
