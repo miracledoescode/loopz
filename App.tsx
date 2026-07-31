@@ -1,3 +1,4 @@
+import 'react-native-reanimated';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -74,6 +75,12 @@ export default function App() {
             text: colors.textPrimary,
             border: colors.glassBorder,
             notification: colors.accent,
+          },
+          fonts: {
+            regular: { fontFamily: 'Outfit_400Regular', fontWeight: '400' as const },
+            medium: { fontFamily: 'Outfit_500Medium', fontWeight: '500' as const },
+            bold: { fontFamily: 'Outfit_700Bold', fontWeight: '700' as const },
+            heavy: { fontFamily: 'Outfit_700Bold', fontWeight: '700' as const },
           },
         }}
       >

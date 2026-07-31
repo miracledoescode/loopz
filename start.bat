@@ -1,0 +1,2 @@
+set REACT_NATIVE_PACKAGER_HOSTNAME=192.168.100.134
+npx expo start -c --port 8085
