@@ -144,6 +144,8 @@ export function SprintScreen() {
       <View style={styles.controlsArea}>
         {/* Pause */}
         <AnimatedPressable
+          accessibilityLabel={isPaused ? 'Resume timer' : 'Pause timer'}
+          accessibilityRole="button"
           style={[styles.controlButton, pauseStyle]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -176,6 +178,8 @@ export function SprintScreen() {
 
         {/* Not this */}
         <Pressable
+          accessibilityLabel="Get a different task"
+          accessibilityRole="button"
           style={styles.controlButton}
           onPress={handleNotThis}
         >

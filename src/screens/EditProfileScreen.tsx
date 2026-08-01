@@ -7,6 +7,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -19,21 +20,10 @@ import { useAppStore } from '@/store/useAppStore';
 import { colors, fonts, spacing, radii, shadows } from '@/theme';
 import { SPRING_BOUNCY, PRESS_SCALE } from '@/theme/animations';
 import type { Role, EnergyWindow } from '@/types';
+import { ROLES, WINDOWS } from '@/constants/profileOptions';
 import { useNavigation } from '@react-navigation/native';
 
-const ROLES: { value: Role; emoji: string; label: string }[] = [
-  { value: 'student', emoji: '📚', label: 'Student' },
-  { value: 'developer', emoji: '💻', label: 'Developer' },
-  { value: 'trader', emoji: '📈', label: 'Trader' },
-  { value: 'creator', emoji: '🎨', label: 'Creator' },
-  { value: 'other', emoji: '✨', label: 'Other' },
-];
 
-const WINDOWS: { value: EnergyWindow; label: string }[] = [
-  { value: 'morning', label: '🌅 Morning' },
-  { value: 'afternoon', label: '☀️ Afternoon' },
-  { value: 'night', label: '🌙 Night' },
-];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -42,6 +32,7 @@ export function EditProfileScreen() {
   const profile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
 
+  const [name, setName] = useState(profile?.name ?? '');
   const [role, setRole] = useState<Role>(profile?.role ?? 'developer');
   const [energyWindow, setEnergyWindow] = useState<EnergyWindow>(
     profile?.energyWindow ?? 'morning'
@@ -56,7 +47,7 @@ export function EditProfileScreen() {
   async function handleSave() {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
-    const updated = { role, energyWindow, todaysWin: todaysWin || 'Make progress' };
+    const updated = { name: name.trim(), role, energyWindow, todaysWin: todaysWin || 'Make progress' };
     await setDoc(doc(db, 'users', uid), updated, { merge: true });
     setProfile(updated);
     navigation.goBack();
@@ -75,65 +66,79 @@ export function EditProfileScreen() {
         </Pressable>
       </View>
 
-      {/* Role */}
-      <Text style={styles.sectionLabel}>ROLE</Text>
-      <View style={styles.chipRow}>
-        {ROLES.map((r) => (
-          <Pressable
-            key={r.value}
-            onPress={() => setRole(r.value)}
-            style={[styles.chip, role === r.value && styles.chipActive]}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Name */}
+        <Text style={styles.sectionLabel}>NAME</Text>
+        <TextInput
+          style={styles.winInput}
+          placeholder="What should we call you?"
+          placeholderTextColor={colors.textMuted}
+          value={name}
+          onChangeText={setName}
+          selectionColor={colors.accent}
+        />
+
+        {/* Role */}
+        <Text style={styles.sectionLabel}>ROLE</Text>
+        <View style={styles.chipRow}>
+          {ROLES.map((r) => (
+            <Pressable
+              key={r.value}
+              onPress={() => setRole(r.value)}
+              style={[styles.chip, role === r.value && styles.chipActive]}
+            >
+              <Text style={styles.chipEmoji}>{r.emoji}</Text>
+              <Text style={[styles.chipText, role === r.value && styles.chipTextActive]}>
+                {r.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Energy window */}
+        <Text style={styles.sectionLabel}>ENERGY WINDOW</Text>
+        <View style={styles.chipRow}>
+          {WINDOWS.map((w) => (
+            <Pressable
+              key={w.value}
+              onPress={() => setEnergyWindow(w.value)}
+              style={[styles.chip, energyWindow === w.value && styles.chipActive]}
+            >
+              <Text style={styles.chipEmoji}>{w.emoji}</Text>
+              <Text style={[styles.chipText, energyWindow === w.value && styles.chipTextActive]}>
+                {w.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Today's win */}
+        <Text style={styles.sectionLabel}>TODAY'S WIN</Text>
+        <TextInput
+          style={styles.winInput}
+          placeholder="What does a win look like today?"
+          placeholderTextColor={colors.textMuted}
+          value={todaysWin}
+          onChangeText={setTodaysWin}
+          selectionColor={colors.accent}
+        />
+
+        {/* Save */}
+        <View style={styles.ctaContainer}>
+          <AnimatedPressable
+            style={[styles.cta, buttonStyle]}
+            onPress={handleSave}
+            onPressIn={() => {
+              buttonScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);
+            }}
+            onPressOut={() => {
+              buttonScale.value = withSpring(1, SPRING_BOUNCY);
+            }}
           >
-            <Text style={styles.chipEmoji}>{r.emoji}</Text>
-            <Text style={[styles.chipText, role === r.value && styles.chipTextActive]}>
-              {r.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Energy window */}
-      <Text style={styles.sectionLabel}>ENERGY WINDOW</Text>
-      <View style={styles.chipRow}>
-        {WINDOWS.map((w) => (
-          <Pressable
-            key={w.value}
-            onPress={() => setEnergyWindow(w.value)}
-            style={[styles.chip, energyWindow === w.value && styles.chipActive]}
-          >
-            <Text style={[styles.chipText, energyWindow === w.value && styles.chipTextActive]}>
-              {w.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Today's win */}
-      <Text style={styles.sectionLabel}>TODAY'S WIN</Text>
-      <TextInput
-        style={styles.winInput}
-        placeholder="What does a win look like today?"
-        placeholderTextColor={colors.textMuted}
-        value={todaysWin}
-        onChangeText={setTodaysWin}
-        selectionColor={colors.accent}
-      />
-
-      {/* Save */}
-      <View style={styles.ctaContainer}>
-        <AnimatedPressable
-          style={[styles.cta, buttonStyle]}
-          onPress={handleSave}
-          onPressIn={() => {
-            buttonScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);
-          }}
-          onPressOut={() => {
-            buttonScale.value = withSpring(1, SPRING_BOUNCY);
-          }}
-        >
-          <Text style={styles.ctaText}>Save</Text>
-        </AnimatedPressable>
-      </View>
+            <Text style={styles.ctaText}>Save</Text>
+          </AnimatedPressable>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -142,15 +147,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
-    paddingHorizontal: spacing.lg,
     paddingTop: 70,
-    paddingBottom: 40,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
   heading: {
     fontFamily: fonts.heading,
@@ -213,8 +222,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   ctaContainer: {
-    flex: 1,
+    marginTop: spacing.xl,
     justifyContent: 'flex-end',
+    flex: 1,
   },
   cta: {
     backgroundColor: colors.accent,

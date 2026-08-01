@@ -2,6 +2,7 @@ export type Role = 'student' | 'developer' | 'trader' | 'creator' | 'other';
 export type EnergyWindow = 'morning' | 'afternoon' | 'night';
 
 export interface UserProfile {
+  name: string;
   role: Role;
   energyWindow: EnergyWindow;
   todaysWin: string;

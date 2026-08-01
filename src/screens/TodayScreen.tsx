@@ -57,9 +57,6 @@ export function TodayScreen() {
   }
 
   const greeting = getGreeting();
-  const roleLabel = profile?.role
-    ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1)
-    : '';
 
   return (
     <KeyboardAvoidingView 
@@ -74,12 +71,11 @@ export function TodayScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>{greeting}</Text>
-          {roleLabel ? (
-            <Text style={styles.roleTag}>{roleLabel}</Text>
-          ) : null}
+          <Text style={styles.greeting}>{greeting}{profile?.name ? `, ${profile.name}` : ''}</Text>
         </View>
         <Pressable
+          accessibilityLabel="Edit profile"
+          accessibilityRole="button"
           onPress={() => navigation.navigate('EditProfile')}
           style={styles.avatarButton}
         >

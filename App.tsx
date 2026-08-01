@@ -1,6 +1,6 @@
 import 'react-native-reanimated';
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
@@ -17,7 +17,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { signInAnonymously } from 'firebase/auth';
 import { firebaseApp, auth } from '@/config/firebase';
 import { RootNavigator } from '@/navigation/RootNavigator';
-import { colors } from '@/theme';
+import { colors, fonts } from '@/theme';
 
 // Keep splash visible while loading fonts + auth
 // SplashScreen.preventAutoHideAsync() may not be available in all Expo versions,
@@ -28,6 +28,7 @@ try {
 
 export default function App() {
   const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -42,7 +43,7 @@ export default function App() {
       .then(() => setAuthReady(true))
       .catch((err) => {
         console.error('Auth error:', err);
-        setAuthReady(true); // Proceed anyway — offline-first approach
+        setAuthError("Couldn't connect to loopz. Please check your network and restart the app.");
       });
   }, []);
 
@@ -53,6 +54,14 @@ export default function App() {
       } catch {}
     }
   }, [fontsLoaded, authReady]);
+
+  if (authError) {
+    return (
+      <View style={styles.loading} onLayout={onLayoutReady}>
+        <Text style={styles.errorText}>{authError}</Text>
+      </View>
+    );
+  }
 
   if (!fontsLoaded || !authReady) {
     return (
@@ -100,5 +109,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  errorText: {
+    fontFamily: fonts.body,
+    fontSize: 16,
+    color: colors.error,
+    textAlign: 'center',
+    padding: 24,
   },
 });

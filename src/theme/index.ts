@@ -15,7 +15,7 @@ export const colors = {
   // Text
   textPrimary: '#F2F0ED',
   textSecondary: '#9B9A97',
-  textMuted: '#5C5B58',
+  textMuted: '#7A7975',
 
   // Accent — electric lime
   accent: '#CCFF00',

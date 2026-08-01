@@ -5,7 +5,7 @@ import { buildRankingPrompt } from './prompts';
 
 if (!admin.apps.length) admin.initializeApp();
 
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-flash-latest';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 interface RankTaskRequest {
@@ -13,7 +13,7 @@ interface RankTaskRequest {
   excludedTasks?: string[];
 }
 
-export const rankTask = functions.https.onCall(async (data, context) => {
+export const rankTask = functions.runWith({ secrets: ['GEMINI_KEY'] }).https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Sign in required.');
   }
@@ -73,11 +73,15 @@ export const rankTask = functions.https.onCall(async (data, context) => {
     );
   }
   // Cap at 5 micro-steps even if Gemini over-generates
-  const validatedSteps = parsed.task.microSteps.slice(0, 5).map((s: any) => ({
-    text: String(s.text ?? ''),
-    estMinutes: Math.max(1, Math.min(60, Number(s.estMinutes) || 10)),
-    done: false,
-  }));
+  const validatedSteps = parsed.task.microSteps.slice(0, 5).map((s: any) => {
+    const parsedMin = Number(s.estMinutes);
+    const est = isNaN(parsedMin) || s.estMinutes == null || s.estMinutes === '' ? 10 : parsedMin;
+    return {
+      text: String(s.text ?? ''),
+      estMinutes: Math.max(1, Math.min(60, est)),
+      done: false,
+    };
+  });
 
   const taskRef = admin.firestore().collection(`users/${context.auth.uid}/tasks`).doc();
   const task = {

@@ -17,12 +17,7 @@ interface AppState {
 
   // ─── Sprint ────────────────────────────────────────────────
   activeMicroStepIndex: number;
-  isPaused: boolean;
-  sprintStartTime: number | null;
-
   startSprint: () => void;
-  pauseSprint: () => void;
-  resumeSprint: () => void;
   advanceMicroStep: () => void;
   completeSprint: () => void;
   resetForRerank: () => void;
@@ -40,22 +35,13 @@ export const useAppStore = create<AppState>()(
       currentTask: null,
       lastDumpText: '',
       setCurrentTask: (currentTask) =>
-        set({ currentTask, activeMicroStepIndex: 0, isPaused: false, sprintStartTime: null }),
+        set({ currentTask, activeMicroStepIndex: 0 }),
       setLastDumpText: (lastDumpText) => set({ lastDumpText }),
 
       // ─── Sprint ──────────────────────────────────────────
       activeMicroStepIndex: 0,
-      isPaused: false,
-      sprintStartTime: null,
-
       startSprint: () =>
-        set({ sprintStartTime: Date.now(), isPaused: false }),
-
-      pauseSprint: () =>
-        set({ isPaused: true }),
-
-      resumeSprint: () =>
-        set({ isPaused: false }),
+        set({}),
 
       advanceMicroStep: () =>
         set((state) => {
@@ -69,7 +55,6 @@ export const useAppStore = create<AppState>()(
           return {
             activeMicroStepIndex: nextIndex,
             currentTask: { ...task, microSteps: updatedSteps },
-            isPaused: false,
           };
         }),
 
@@ -80,8 +65,6 @@ export const useAppStore = create<AppState>()(
           const allDone = task.microSteps.map((s) => ({ ...s, done: true }));
           return {
             currentTask: { ...task, microSteps: allDone, status: 'done' },
-            isPaused: false,
-            sprintStartTime: null,
           };
         }),
 
@@ -89,8 +72,6 @@ export const useAppStore = create<AppState>()(
         set({
           currentTask: null,
           activeMicroStepIndex: 0,
-          isPaused: false,
-          sprintStartTime: null,
         }),
     }),
     {

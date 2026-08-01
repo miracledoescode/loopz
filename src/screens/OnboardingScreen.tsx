@@ -23,27 +23,17 @@ import { useAppStore } from '@/store/useAppStore';
 import { colors, fonts, spacing, radii, shadows } from '@/theme';
 import { SPRING_BOUNCY, PRESS_SCALE } from '@/theme/animations';
 import type { Role, EnergyWindow } from '@/types';
+import { ROLES, WINDOWS } from '@/constants/profileOptions';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const ROLES: { value: Role; emoji: string; label: string }[] = [
-  { value: 'student', emoji: '📚', label: 'Student' },
-  { value: 'developer', emoji: '💻', label: 'Developer' },
-  { value: 'trader', emoji: '📈', label: 'Trader' },
-  { value: 'creator', emoji: '🎨', label: 'Creator' },
-  { value: 'other', emoji: '✨', label: 'Other' },
-];
 
-const WINDOWS: { value: EnergyWindow; emoji: string; label: string; time: string }[] = [
-  { value: 'morning', emoji: '🌅', label: 'Morning', time: '6am – 12pm' },
-  { value: 'afternoon', emoji: '☀️', label: 'Afternoon', time: '12pm – 6pm' },
-  { value: 'night', emoji: '🌙', label: 'Night', time: '6pm – 12am' },
-];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function OnboardingScreen() {
   const [step, setStep] = useState(0);
+  const [name, setName] = useState('');
   const [role, setRole] = useState<Role>('developer');
   const [energyWindow, setEnergyWindow] = useState<EnergyWindow>('morning');
   const [todaysWin, setTodaysWin] = useState('');
@@ -55,7 +45,7 @@ export function OnboardingScreen() {
   }));
 
   async function finish() {
-    const profile = { role, energyWindow, todaysWin: todaysWin || 'Make progress' };
+    const profile = { name: name.trim(), role, energyWindow, todaysWin: todaysWin || 'Make progress' };
     // Try to persist to Firestore if user is signed in, but don't block on it
     const uid = auth.currentUser?.uid;
     if (uid) {
@@ -70,7 +60,7 @@ export function OnboardingScreen() {
   }
 
   function handleNext() {
-    if (step < 2) {
+    if (step < 3) {
       setStep(step + 1);
     } else {
       finish();
@@ -81,7 +71,7 @@ export function OnboardingScreen() {
     <View style={styles.container}>
       {/* Progress indicator */}
       <View style={styles.progressRow}>
-        {[0, 1, 2].map((i) => (
+        {[0, 1, 2, 3].map((i) => (
           <View
             key={i}
             style={[
@@ -104,7 +94,30 @@ export function OnboardingScreen() {
             exiting={FadeOutLeft.duration(300)}
             style={styles.stepContainer}
           >
-            <Text style={styles.stepLabel}>STEP 1 OF 3</Text>
+            <Text style={styles.stepLabel}>STEP 1 OF 4</Text>
+            <Text style={styles.heading}>What's your name?</Text>
+            <Text style={styles.subtext}>
+              So we know what to call you.
+            </Text>
+            <TextInput
+              style={styles.winInput}
+              placeholder="e.g. Alex"
+              placeholderTextColor={colors.textMuted}
+              value={name}
+              onChangeText={setName}
+              selectionColor={colors.accent}
+              autoFocus
+            />
+          </Animated.View>
+        )}
+
+        {step === 1 && (
+          <Animated.View
+            entering={FadeInRight.duration(400)}
+            exiting={FadeOutLeft.duration(300)}
+            style={styles.stepContainer}
+          >
+            <Text style={styles.stepLabel}>STEP 2 OF 4</Text>
             <Text style={styles.heading}>What's your role?</Text>
             <Text style={styles.subtext}>
               This tunes how Loopz ranks what matters most for you.
@@ -134,13 +147,13 @@ export function OnboardingScreen() {
           </Animated.View>
         )}
 
-        {step === 1 && (
+        {step === 2 && (
           <Animated.View
             entering={FadeInRight.duration(400)}
             exiting={FadeOutLeft.duration(300)}
             style={styles.stepContainer}
           >
-            <Text style={styles.stepLabel}>STEP 2 OF 3</Text>
+            <Text style={styles.stepLabel}>STEP 3 OF 4</Text>
             <Text style={styles.heading}>Peak energy window?</Text>
             <Text style={styles.subtext}>
               When are you sharpest? We'll bias high-focus tasks here.
@@ -177,13 +190,13 @@ export function OnboardingScreen() {
           </Animated.View>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <Animated.View
             entering={FadeInRight.duration(400)}
             exiting={FadeOutLeft.duration(300)}
             style={styles.stepContainer}
           >
-            <Text style={styles.stepLabel}>STEP 3 OF 3</Text>
+            <Text style={styles.stepLabel}>STEP 4 OF 4</Text>
             <Text style={styles.heading}>What does a win look like today?</Text>
             <Text style={styles.subtext}>
               One sentence. This anchors every decision Loopz makes for you.
@@ -218,7 +231,7 @@ export function OnboardingScreen() {
           }}
         >
           <Text style={styles.ctaText}>
-            {step < 2 ? 'Next' : "Let's go"}
+            {step < 3 ? 'Next' : "Let's go"}
           </Text>
         </AnimatedPressable>
 

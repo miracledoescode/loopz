@@ -125,11 +125,15 @@ export async function rankTaskLocal(
   }
 
   // Cap at 5 micro-steps even if Gemini over-generates
-  const validatedSteps = parsed.task.microSteps.slice(0, 5).map((s: any) => ({
-    text: String(s.text ?? ''),
-    estMinutes: Math.max(1, Math.min(60, Number(s.estMinutes) || 10)),
-    done: false,
-  }));
+  const validatedSteps = parsed.task.microSteps.slice(0, 5).map((s: any) => {
+    const parsedMin = Number(s.estMinutes);
+    const est = isNaN(parsedMin) || s.estMinutes == null || s.estMinutes === '' ? 10 : parsedMin;
+    return {
+      text: String(s.text ?? ''),
+      estMinutes: Math.max(1, Math.min(60, est)),
+      done: false,
+    };
+  });
 
   // Create a new document reference to get a unique ID
   const taskRef = doc(collection(db, `users/${auth.currentUser.uid}/tasks`));
