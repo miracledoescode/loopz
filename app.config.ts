@@ -19,7 +19,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#0D0D0F',
     },
   },
-  plugins: ['expo-font'],
+  plugins: [
+    'expo-font',
+    [
+      'expo-audio',
+      {
+        microphonePermission: 'Allow Loopz to access your microphone to record voice brain dumps.',
+      },
+    ],
+  ],
   extra: {
     firebaseApiKey: process.env.FIREBASE_API_KEY,
     firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN,

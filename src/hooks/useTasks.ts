@@ -9,11 +9,14 @@ export function useTasks() {
   const lastDumpText = useAppStore((s) => s.lastDumpText);
   const resetForRerank = useAppStore((s) => s.resetForRerank);
 
-  /** First brain dump — send raw text to Gemini, get back one ranked task */
-  async function submitBrainDump(rawText: string): Promise<Task> {
+  /** First brain dump — send raw text (or audio) to Gemini, get back one ranked task */
+  async function submitBrainDump(
+    rawText: string,
+    audioData?: { mimeType: string; data: string }
+  ): Promise<Task> {
     if (!profile) throw new Error('Profile required');
     setLastDumpText(rawText);
-    const task = await rankTaskLocal(rawText, profile);
+    const task = await rankTaskLocal(rawText, profile, [], audioData);
     setCurrentTask(task);
     return task;
   }

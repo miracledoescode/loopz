@@ -25,11 +25,11 @@ export function TodayScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleDump(text: string) {
+  async function handleDump(text: string, audioData?: { mimeType: string, data: string }) {
     setLoading(true);
     setError(null);
     try {
-      await submitBrainDump(text);
+      await submitBrainDump(text, audioData);
     } catch (err: any) {
       setError(err?.message ?? 'Something went wrong. Try again.');
     } finally {

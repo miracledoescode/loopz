@@ -73,3 +73,6 @@ node_modules/
 
 # Temporary secret setting script
 set_secret.js
+
+# docs
+/docs

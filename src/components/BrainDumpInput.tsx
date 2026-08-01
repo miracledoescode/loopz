@@ -7,6 +7,14 @@ import {
   StyleSheet,
   Keyboard,
 } from 'react-native';
+import {
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -19,7 +27,7 @@ import { TIMING_FAST, SPRING_BOUNCY, PRESS_SCALE } from '@/theme/animations';
 import { LoadingOrb } from './LoadingOrb';
 
 interface Props {
-  onSubmit: (text: string) => void;
+  onSubmit: (text: string, audioData?: { mimeType: string; data: string }) => void;
   loading: boolean;
 }
 
@@ -30,8 +38,14 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
   const inputRef = useRef<TextInput>(null);
   const focusAnim = useSharedValue(0);
   const buttonScale = useSharedValue(1);
+  const recordScale = useSharedValue(1);
+  
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const [isRecording, setIsRecording] = useState(false);
 
-  const canSubmit = !loading && text.trim().length > 0;
+  const recordAnim = useSharedValue(0);
+
+  const canSubmit = !loading && (text.trim().length > 0 || isRecording);
 
   const borderStyle = useAnimatedStyle(() => ({
     borderColor: interpolateColor(
@@ -48,7 +62,71 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
     transform: [{ scale: buttonScale.value }],
   }));
 
+  const recordButtonStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: recordScale.value }],
+    backgroundColor: interpolateColor(
+      recordAnim.value,
+      [0, 1],
+      [colors.bgCard, colors.error]
+    ),
+  }));
+
+  const recordIconStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      recordAnim.value,
+      [0, 1],
+      [colors.textPrimary, colors.bg]
+    ),
+  }));
+
+  async function startRecording() {
+    try {
+      const perm = await requestRecordingPermissionsAsync();
+      if (perm.status !== 'granted') {
+        console.log('Permission not granted');
+        return;
+      }
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+      });
+
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setIsRecording(true);
+      recordAnim.value = withTiming(1, { duration: 300 });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (err) {
+      console.error('Failed to start recording', err);
+    }
+  }
+
+  async function stopRecording() {
+    if (!isRecording) return;
+    setIsRecording(false);
+    recordAnim.value = withTiming(0, { duration: 300 });
+    try {
+      await recorder.stop();
+      await setAudioModeAsync({ allowsRecording: false });
+      const uri = recorder.uri;
+      if (uri) {
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: 'base64',
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        const submitText = text.trim() || 'Voice brain dump';
+        onSubmit(submitText, { mimeType: 'audio/mp4', data: base64 });
+      }
+    } catch (err) {
+      console.error('Failed to stop recording', err);
+    }
+  }
+
   function handleSubmit() {
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
     if (!canSubmit) return;
     Keyboard.dismiss();
     onSubmit(text.trim());
@@ -90,25 +168,43 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
           <Text style={styles.loadingText}>Finding your next move...</Text>
         </View>
       ) : (
-        <AnimatedPressable
-          style={[
-            styles.cta,
-            !canSubmit && styles.ctaDisabled,
-            buttonStyle,
-          ]}
-          disabled={!canSubmit}
-          onPress={handleSubmit}
-          onPressIn={() => {
-            buttonScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);
-          }}
-          onPressOut={() => {
-            buttonScale.value = withSpring(1, SPRING_BOUNCY);
-          }}
-        >
-          <Text style={[styles.ctaText, !canSubmit && styles.ctaTextDisabled]}>
-            Brain dump
-          </Text>
-        </AnimatedPressable>
+        <View style={styles.actionsRow}>
+          <AnimatedPressable
+            style={[
+              styles.cta,
+              !canSubmit && styles.ctaDisabled,
+              buttonStyle,
+              { flex: 1 },
+            ]}
+            disabled={!canSubmit}
+            onPress={handleSubmit}
+            onPressIn={() => {
+              buttonScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);
+            }}
+            onPressOut={() => {
+              buttonScale.value = withSpring(1, SPRING_BOUNCY);
+            }}
+          >
+            <Text style={[styles.ctaText, !canSubmit && styles.ctaTextDisabled]}>
+              {isRecording ? 'Stop & Submit' : 'Brain dump'}
+            </Text>
+          </AnimatedPressable>
+
+          <AnimatedPressable
+            style={[styles.recordButton, recordButtonStyle]}
+            onPress={isRecording ? stopRecording : startRecording}
+            onPressIn={() => {
+              recordScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);
+            }}
+            onPressOut={() => {
+              recordScale.value = withSpring(1, SPRING_BOUNCY);
+            }}
+          >
+            <Animated.Text style={[styles.recordIcon, recordIconStyle]}>
+              {isRecording ? '■' : '🎙'}
+            </Animated.Text>
+          </AnimatedPressable>
+        </View>
       )}
     </View>
   );
@@ -174,6 +270,25 @@ const styles = StyleSheet.create({
   },
   ctaTextDisabled: {
     color: colors.textMuted,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  recordButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bgCard,
+    borderWidth: 1.5,
+    borderColor: colors.glassBorder,
+  },
+  recordIcon: {
+    fontSize: 24,
   },
   loadingContainer: {
     alignItems: 'center',
