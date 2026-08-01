@@ -2,6 +2,4 @@ name = "loopz-rank-task"
 main = "src/index.ts"
 compatibility_date = "2024-04-05"
 
-[vars]
-APP_SECRET = "304a37a510e84617c32f30bd1cf31048"
 # GEMINI_KEY is set via wrangler secret

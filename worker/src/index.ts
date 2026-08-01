@@ -1,8 +1,23 @@
 import { buildRankingPrompt } from './prompts';
+import { jwtVerify, createRemoteJWKSet } from 'jose';
+
+const FIREBASE_PROJECT_ID = 'loopz-a6a7b';
+const JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
+
+async function verifyFirebaseToken(token: string) {
+  try {
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+      audience: FIREBASE_PROJECT_ID,
+    });
+    return payload;
+  } catch (error) {
+    return null;
+  }
+}
 
 export interface Env {
   GEMINI_KEY: string;
-  APP_SECRET: string;
 }
 
 const GEMINI_MODEL = 'gemini-flash-latest';
@@ -18,7 +33,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, x-app-secret',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
 
     if (request.method === 'OPTIONS') {
@@ -32,9 +47,19 @@ export default {
       });
     }
 
-    const appSecretHeader = request.headers.get('x-app-secret');
-    if (appSecretHeader !== env.APP_SECRET) {
-      return new Response(JSON.stringify({ error: 'Unauthorized: Invalid App Secret' }), { 
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: Missing Bearer token' }), { 
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+    const userPayload = await verifyFirebaseToken(idToken);
+    
+    if (!userPayload) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: Invalid Firebase ID Token' }), { 
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });

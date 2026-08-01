@@ -1,4 +1,11 @@
 import worker from './index';
+import { jwtVerify } from 'jose';
+
+// Mock jose
+jest.mock('jose', () => ({
+  createRemoteJWKSet: jest.fn(),
+  jwtVerify: jest.fn(),
+}));
 
 // Mock global fetch
 const originalFetch = globalThis.fetch;
@@ -14,11 +21,12 @@ afterAll(() => {
 });
 
 describe('Worker validation', () => {
-  const env = { GEMINI_KEY: 'mock-key', APP_SECRET: 'mock-secret' };
+  const env = { GEMINI_KEY: 'mock-key' };
   const mockCtx = {} as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (jwtVerify as jest.Mock).mockResolvedValue({ payload: { sub: 'mock-uid' } });
   });
 
   const mockGeminiResponse = (text: string) => {
@@ -34,7 +42,7 @@ describe('Worker validation', () => {
     return new Request('https://worker.local/', {
       method: 'POST',
       headers: {
-        'x-app-secret': 'mock-secret',
+        'Authorization': 'Bearer mock-id-token',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(body)

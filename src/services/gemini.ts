@@ -3,8 +3,7 @@ import { db, auth } from '@/config/firebase';
 import type { Task, UserProfile } from '@/types';
 
 // The Cloudflare Worker URL serving as the secure proxy to Gemini
-const WORKER_URL = 'https://loopz-rank-task.miraclesayscode.workers.dev'; 
-const APP_SECRET = '304a37a510e84617c32f30bd1cf31048';
+const WORKER_URL = 'https://loopz-rank-task.miraclesayscode.workers.dev';
 
 export async function rankTaskLocal(
   rawText: string,
@@ -12,15 +11,18 @@ export async function rankTaskLocal(
   excludedTasks: string[] = [],
   audioData?: { mimeType: string; data: string }
 ): Promise<Task> {
-  if (!auth.currentUser) {
-    throw new Error('Must be signed in to rank tasks');
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('You must be signed in to create a task.');
   }
+
+  const idToken = await currentUser.getIdToken();
 
   const response = await fetch(WORKER_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-app-secret': APP_SECRET,
+      'Authorization': `Bearer ${idToken}`,
     },
     body: JSON.stringify({
       rawText,
