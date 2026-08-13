@@ -27,6 +27,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         microphonePermission: 'Allow Loopz to access your microphone to record voice brain dumps.',
       },
     ],
+    '@react-native-google-signin/google-signin'
   ],
   extra: {
     firebaseApiKey: process.env.FIREBASE_API_KEY,

@@ -18,6 +18,17 @@ import { signInAnonymously } from 'firebase/auth';
 import { firebaseApp, auth } from '@/config/firebase';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { colors, fonts } from '@/theme';
+import { Platform } from 'react-native';
+
+// Configure Google Sign-In (safe init)
+try {
+  const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+  GoogleSignin.configure({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
+} catch (e) {
+  console.warn('Google Sign-In not available:', e);
+}
 
 // Keep splash visible while loading fonts + auth
 // SplashScreen.preventAutoHideAsync() may not be available in all Expo versions,
@@ -39,6 +50,20 @@ export default function App() {
   });
 
   useEffect(() => {
+    // Configure RevenueCat (safe init)
+    try {
+      const Purchases = require('react-native-purchases').default;
+      const { LOG_LEVEL } = require('react-native-purchases');
+      if (Purchases && LOG_LEVEL) {
+        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+      }
+      if (Platform.OS === 'android' && process.env.EXPO_PUBLIC_RC_ANDROID_KEY) {
+        Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_RC_ANDROID_KEY });
+      }
+    } catch (e) {
+      console.warn('RevenueCat not available:', e);
+    }
+
     signInAnonymously(auth)
       .then(() => setAuthReady(true))
       .catch((err) => {

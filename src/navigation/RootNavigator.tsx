@@ -5,6 +5,7 @@ import { OnboardingScreen } from '@/screens/OnboardingScreen';
 import { TodayScreen } from '@/screens/TodayScreen';
 import { SprintScreen } from '@/screens/SprintScreen';
 import { EditProfileScreen } from '@/screens/EditProfileScreen';
+import { PaywallScreen } from '@/screens/PaywallScreen';
 import { colors } from '@/theme';
 
 export type RootStackParamList = {
@@ -12,6 +13,7 @@ export type RootStackParamList = {
   Today: undefined;
   Sprint: undefined;
   EditProfile: undefined;
+  Paywall: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -46,6 +48,15 @@ export function RootNavigator() {
             options={{
               animation: 'slide_from_bottom',
               presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="Paywall"
+            component={PaywallScreen}
+            options={{
+              animation: 'slide_from_bottom',
+              presentation: 'fullScreenModal',
+              gestureEnabled: false,
             }}
           />
         </>
