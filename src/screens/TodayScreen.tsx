@@ -21,6 +21,7 @@ export function TodayScreen() {
   const currentTask = useAppStore((s) => s.currentTask);
   const setCurrentTask = useAppStore((s) => s.setCurrentTask);
   const startSprint = useAppStore((s) => s.startSprint);
+  const isPro = useAppStore((s) => s.isPro);
   const { submitBrainDump, rejectAndRerank } = useTasks();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,10 @@ export function TodayScreen() {
     try {
       await submitBrainDump(text, audioData);
     } catch (err: any) {
+      if (err?.message === 'PAYWALL') {
+        navigation.navigate('Paywall');
+        return;
+      }
       setError(err?.message ?? 'Something went wrong. Try again.');
     } finally {
       setLoading(false);
@@ -70,8 +75,13 @@ export function TodayScreen() {
       >
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text style={styles.greeting}>{greeting}{profile?.name ? `, ${profile.name}` : ''}</Text>
+          {isPro && (
+            <Animated.View entering={FadeIn.duration(400)} style={styles.proBadge}>
+              <Text style={styles.proBadgeText}>PRO</Text>
+            </Animated.View>
+          )}
         </View>
         <Pressable
           accessibilityLabel="Edit profile"
@@ -145,11 +155,32 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: spacing.lg,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+    flex: 1,
+  },
   greeting: {
     fontFamily: fonts.heading,
     fontSize: 24,
     color: colors.textPrimary,
     letterSpacing: -0.5,
+  },
+  proBadge: {
+    backgroundColor: colors.accentDim,
+    borderRadius: radii.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: colors.accentGlow,
+  },
+  proBadgeText: {
+    fontFamily: fonts.headingMedium,
+    fontSize: 10,
+    color: colors.accent,
+    letterSpacing: 1.5,
   },
   roleTag: {
     fontFamily: fonts.monoLight,

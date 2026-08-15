@@ -17,6 +17,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { signInAnonymously } from 'firebase/auth';
 import { firebaseApp, auth } from '@/config/firebase';
 import { RootNavigator } from '@/navigation/RootNavigator';
+import { useAppStore } from '@/store/useAppStore';
 import { colors, fonts } from '@/theme';
 import { Platform } from 'react-native';
 
@@ -50,7 +51,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    // Configure RevenueCat (safe init)
+    // ── Configure RevenueCat ──────────────────────────────────
     try {
       const Purchases = require('react-native-purchases').default;
       const { LOG_LEVEL } = require('react-native-purchases');
@@ -59,13 +60,34 @@ export default function App() {
       }
       if (Platform.OS === 'android' && process.env.EXPO_PUBLIC_RC_ANDROID_KEY) {
         Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_RC_ANDROID_KEY });
+      } else if (Platform.OS === 'ios' && process.env.EXPO_PUBLIC_RC_IOS_KEY) {
+        Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_RC_IOS_KEY });
       }
     } catch (e) {
       console.warn('RevenueCat not available:', e);
     }
 
+    // ── Sign in & link RevenueCat to the Firebase user ───────
     signInAnonymously(auth)
-      .then(() => setAuthReady(true))
+      .then(async (userCred) => {
+        try {
+          const Purchases = require('react-native-purchases').default;
+          // Tell RC who this user is — enables cross-device restore
+          await Purchases.logIn(userCred.user.uid);
+          // Restore subscription state on cold start
+          const { customerInfo } = await Purchases.getCustomerInfo();
+          const isPro = typeof customerInfo.entitlements.active['pro'] !== 'undefined';
+          useAppStore.getState().setIsPro(isPro);
+          // Keep isPro in sync if user subscribes/cancels in background
+          Purchases.addCustomerInfoUpdateListener((info: any) => {
+            const pro = typeof info.entitlements.active['pro'] !== 'undefined';
+            useAppStore.getState().setIsPro(pro);
+          });
+        } catch (e) {
+          console.warn('RevenueCat login/restore error:', e);
+        }
+        setAuthReady(true);
+      })
       .catch((err) => {
         console.error('Auth error:', err);
         setAuthError("Couldn't connect to loopz. Please check your network and restart the app.");

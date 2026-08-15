@@ -1,6 +1,12 @@
 import { useAppStore } from '@/store/useAppStore';
 import { rankTaskLocal } from '@/services/gemini';
+import { auth } from '@/config/firebase';
+import { db } from '@/config/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 import type { Task } from '@/types';
+
+/** Free tier: max active tasks before paywall triggers */
+const FREE_TASK_LIMIT = 3;
 
 export function useTasks() {
   const profile = useAppStore((s) => s.profile);
@@ -15,6 +21,20 @@ export function useTasks() {
     audioData?: { mimeType: string; data: string }
   ): Promise<Task> {
     if (!profile) throw new Error('Profile required');
+
+    // ── Paywall gate ───────────────────────────────────────────
+    const isPro = useAppStore.getState().isPro;
+    if (!isPro) {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        const snap = await getDocs(collection(db, `users/${uid}/tasks`));
+        if (snap.size >= FREE_TASK_LIMIT) {
+          throw new Error('PAYWALL');
+        }
+      }
+    }
+    // ──────────────────────────────────────────────────────────
+
     setLastDumpText(rawText);
     const task = await rankTaskLocal(rawText, profile, [], audioData);
     setCurrentTask(task);

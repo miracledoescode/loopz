@@ -9,6 +9,10 @@ interface AppState {
   setProfile: (p: UserProfile) => void;
   clearProfile: () => void;
 
+  // ─── Subscription ──────────────────────────────────────────
+  isPro: boolean;
+  setIsPro: (v: boolean) => void;
+
   // ─── Task ──────────────────────────────────────────────────
   currentTask: Task | null;
   lastDumpText: string;
@@ -31,6 +35,10 @@ export const useAppStore = create<AppState>()(
       setProfile: (profile) => set({ profile }),
       clearProfile: () => set({ profile: null }),
 
+      // ─── Subscription ────────────────────────────────────
+      isPro: false,
+      setIsPro: (isPro) => set({ isPro }),
+
       // ─── Task ────────────────────────────────────────────
       currentTask: null,
       lastDumpText: '',
@@ -48,7 +56,6 @@ export const useAppStore = create<AppState>()(
           const task = state.currentTask;
           if (!task) return {};
           const nextIndex = state.activeMicroStepIndex + 1;
-          // Mark current step as done in the task's microSteps
           const updatedSteps = task.microSteps.map((step, i) =>
             i === state.activeMicroStepIndex ? { ...step, done: true } : step
           );
@@ -77,12 +84,12 @@ export const useAppStore = create<AppState>()(
     {
       name: 'loopz-app-store',
       storage: createJSONStorage(() => AsyncStorage),
-      // Only persist profile and current task state — not ephemeral sprint timing
       partialize: (state) => ({
         profile: state.profile,
         currentTask: state.currentTask,
         lastDumpText: state.lastDumpText,
         activeMicroStepIndex: state.activeMicroStepIndex,
+        isPro: state.isPro,
       }),
     }
   )
