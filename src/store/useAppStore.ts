@@ -9,15 +9,13 @@ interface AppState {
   setProfile: (p: UserProfile) => void;
   clearProfile: () => void;
 
-  // ─── Subscription ──────────────────────────────────────────
-  isPro: boolean;
-  setIsPro: (v: boolean) => void;
-
-  // ─── Task ──────────────────────────────────────────────────
+  // ─── Task & Dumps ──────────────────────────────────────────
   currentTask: Task | null;
   lastDumpText: string;
+  recentDumps: string[];
   setCurrentTask: (t: Task | null) => void;
   setLastDumpText: (text: string) => void;
+  addRecentDump: (text: string) => void;
 
   // ─── Sprint ────────────────────────────────────────────────
   activeMicroStepIndex: number;
@@ -35,21 +33,25 @@ export const useAppStore = create<AppState>()(
       setProfile: (profile) => set({ profile }),
       clearProfile: () => set({ profile: null }),
 
-      // ─── Subscription ────────────────────────────────────
-      isPro: false,
-      setIsPro: (isPro) => set({ isPro }),
-
-      // ─── Task ────────────────────────────────────────────
+      // ─── Task & Dumps ────────────────────────────────────
       currentTask: null,
       lastDumpText: '',
+      recentDumps: [
+        "Finish physics assignment and review notes",
+        "Plan weekend side-project architecture",
+      ],
       setCurrentTask: (currentTask) =>
         set({ currentTask, activeMicroStepIndex: 0 }),
       setLastDumpText: (lastDumpText) => set({ lastDumpText }),
+      addRecentDump: (text) =>
+        set((state) => {
+          if (!text || state.recentDumps.includes(text)) return state;
+          return { recentDumps: [text, ...state.recentDumps].slice(0, 5) };
+        }),
 
       // ─── Sprint ──────────────────────────────────────────
       activeMicroStepIndex: 0,
-      startSprint: () =>
-        set({}),
+      startSprint: () => set({}),
 
       advanceMicroStep: () =>
         set((state) => {
@@ -88,8 +90,8 @@ export const useAppStore = create<AppState>()(
         profile: state.profile,
         currentTask: state.currentTask,
         lastDumpText: state.lastDumpText,
+        recentDumps: state.recentDumps,
         activeMicroStepIndex: state.activeMicroStepIndex,
-        isPro: state.isPro,
       }),
     }
   )

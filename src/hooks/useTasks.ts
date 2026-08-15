@@ -12,6 +12,7 @@ export function useTasks() {
   const profile = useAppStore((s) => s.profile);
   const setCurrentTask = useAppStore((s) => s.setCurrentTask);
   const setLastDumpText = useAppStore((s) => s.setLastDumpText);
+  const addRecentDump = useAppStore((s) => s.addRecentDump);
   const lastDumpText = useAppStore((s) => s.lastDumpText);
   const resetForRerank = useAppStore((s) => s.resetForRerank);
 
@@ -36,6 +37,7 @@ export function useTasks() {
     // ──────────────────────────────────────────────────────────
 
     setLastDumpText(rawText);
+    addRecentDump(rawText);
     const task = await rankTaskLocal(rawText, profile, [], audioData);
     setCurrentTask(task);
     return task;
@@ -43,8 +45,6 @@ export function useTasks() {
 
   /**
    * "This isn't it" — quietly re-rank.
-   * Re-calls Gemini with the original dump text + the rejected task title
-   * so Gemini knows to pick something different.
    */
   async function rejectAndRerank(rejectedTitle: string): Promise<Task> {
     if (!profile) throw new Error('Profile required');
@@ -56,7 +56,6 @@ export function useTasks() {
 
   /**
    * Called when all micro-steps in the current task are done.
-   * Triggers a fresh rank from the same dump to pick the next best action.
    */
   async function onMicroStepsExhausted(): Promise<Task | null> {
     if (!profile || !lastDumpText) return null;

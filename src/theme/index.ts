@@ -1,26 +1,26 @@
 /**
  * Loopz Design System
  *
- * Dark-first, high-contrast. Deep charcoal canvas, electric lime accent.
+ * Dark-first, high-contrast. Deep obsidian canvas, pastel green accent.
  * Typography: Outfit (headings/UI), JetBrains Mono (timer), system (body).
  */
 
 export const colors = {
-  // Canvas
-  bg: '#0D0D0F',
-  bgElevated: '#161619',
-  bgCard: '#1C1C20',
-  bgInput: '#222228',
+  // Canvas (Softened, lighter dark slate)
+  bg: '#141519',
+  bgElevated: '#1C1E26',
+  bgCard: '#222530',
+  bgInput: '#292C38',
 
   // Text
   textPrimary: '#F2F0ED',
-  textSecondary: '#9B9A97',
-  textMuted: '#7A7975',
+  textSecondary: '#A0A0A5',
+  textMuted: '#787880',
 
-  // Accent — electric lime
-  accent: '#CCFF00',
-  accentDim: 'rgba(204, 255, 0, 0.15)',
-  accentGlow: 'rgba(204, 255, 0, 0.25)',
+  // Accent — soothing light pastel green (no neon)
+  accent: '#93E6B4',
+  accentDim: 'rgba(147, 230, 180, 0.14)',
+  accentGlow: 'rgba(147, 230, 180, 0.22)',
 
   // Semantic
   success: '#34D399',
@@ -52,11 +52,11 @@ export const spacing = {
 } as const;
 
 export const radii = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  pill: 999,
+  sm: 6,
+  md: 10,
+  lg: 12,
+  xl: 14,
+  pill: 16,
 } as const;
 
 export const shadows = {

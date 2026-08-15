@@ -17,19 +17,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { signInAnonymously } from 'firebase/auth';
 import { firebaseApp, auth } from '@/config/firebase';
 import { RootNavigator } from '@/navigation/RootNavigator';
-import { useAppStore } from '@/store/useAppStore';
 import { colors, fonts } from '@/theme';
-import { Platform } from 'react-native';
-
-// Configure Google Sign-In (safe init)
-try {
-  const { GoogleSignin } = require('@react-native-google-signin/google-signin');
-  GoogleSignin.configure({
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  });
-} catch (e) {
-  console.warn('Google Sign-In not available:', e);
-}
+import { ErrorScreen } from '@/components/ErrorScreen';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { AppBackground } from '@/components/AppBackground';
 
 // Keep splash visible while loading fonts + auth
 // SplashScreen.preventAutoHideAsync() may not be available in all Expo versions,
@@ -50,48 +41,24 @@ export default function App() {
     JetBrainsMono_700Bold,
   });
 
-  useEffect(() => {
-    // ── Configure RevenueCat ──────────────────────────────────
+  const handleAuth = useCallback(async () => {
     try {
-      const Purchases = require('react-native-purchases').default;
-      const { LOG_LEVEL } = require('react-native-purchases');
-      if (Purchases && LOG_LEVEL) {
-        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-      }
-      if (Platform.OS === 'android' && process.env.EXPO_PUBLIC_RC_ANDROID_KEY) {
-        Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_RC_ANDROID_KEY });
-      } else if (Platform.OS === 'ios' && process.env.EXPO_PUBLIC_RC_IOS_KEY) {
-        Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_RC_IOS_KEY });
-      }
-    } catch (e) {
-      console.warn('RevenueCat not available:', e);
+      setAuthError(null);
+      await signInAnonymously(auth);
+      setAuthReady(true);
+    } catch (err: any) {
+      console.error('Auth error:', err);
+      setAuthError(err?.message || "Couldn't connect to loopz. Please check your network and try again.");
     }
+  }, []);
 
-    // ── Sign in & link RevenueCat to the Firebase user ───────
-    signInAnonymously(auth)
-      .then(async (userCred) => {
-        try {
-          const Purchases = require('react-native-purchases').default;
-          // Tell RC who this user is — enables cross-device restore
-          await Purchases.logIn(userCred.user.uid);
-          // Restore subscription state on cold start
-          const { customerInfo } = await Purchases.getCustomerInfo();
-          const isPro = typeof customerInfo.entitlements.active['pro'] !== 'undefined';
-          useAppStore.getState().setIsPro(isPro);
-          // Keep isPro in sync if user subscribes/cancels in background
-          Purchases.addCustomerInfoUpdateListener((info: any) => {
-            const pro = typeof info.entitlements.active['pro'] !== 'undefined';
-            useAppStore.getState().setIsPro(pro);
-          });
-        } catch (e) {
-          console.warn('RevenueCat login/restore error:', e);
-        }
-        setAuthReady(true);
-      })
-      .catch((err) => {
-        console.error('Auth error:', err);
-        setAuthError("Couldn't connect to loopz. Please check your network and restart the app.");
-      });
+  useEffect(() => {
+    handleAuth();
+  }, [handleAuth]);
+
+  const handleBypass = useCallback(() => {
+    setAuthError(null);
+    setAuthReady(true);
   }, []);
 
   const onLayoutReady = useCallback(async () => {
@@ -104,8 +71,17 @@ export default function App() {
 
   if (authError) {
     return (
-      <View style={styles.loading} onLayout={onLayoutReady}>
-        <Text style={styles.errorText}>{authError}</Text>
+      <View style={styles.root} onLayout={onLayoutReady}>
+        <StatusBar style="light" />
+        <ErrorScreen
+          title="Connection Failed"
+          message="Couldn't connect to loopz. Please check your network connection and try again."
+          details={authError}
+          onRetry={handleAuth}
+          onBypass={handleBypass}
+          retryLabel="Try Reconnecting"
+          showBypass={true}
+        />
       </View>
     );
   }
@@ -119,30 +95,34 @@ export default function App() {
   }
 
   return (
-    <View style={styles.root} onLayout={onLayoutReady}>
-      <NavigationContainer
-        theme={{
-          dark: true,
-          colors: {
-            primary: colors.accent,
-            background: colors.bg,
-            card: colors.bg,
-            text: colors.textPrimary,
-            border: colors.glassBorder,
-            notification: colors.accent,
-          },
-          fonts: {
-            regular: { fontFamily: 'Outfit_400Regular', fontWeight: '400' as const },
-            medium: { fontFamily: 'Outfit_500Medium', fontWeight: '500' as const },
-            bold: { fontFamily: 'Outfit_700Bold', fontWeight: '700' as const },
-            heavy: { fontFamily: 'Outfit_700Bold', fontWeight: '700' as const },
-          },
-        }}
-      >
-        <StatusBar style="light" />
-        <RootNavigator />
-      </NavigationContainer>
-    </View>
+    <ErrorBoundary>
+      <View style={styles.root} onLayout={onLayoutReady}>
+        <AppBackground opacity={0.14}>
+          <NavigationContainer
+            theme={{
+              dark: true,
+              colors: {
+                primary: colors.accent,
+                background: 'transparent',
+                card: 'transparent',
+                text: colors.textPrimary,
+                border: colors.glassBorder,
+                notification: colors.accent,
+              },
+              fonts: {
+                regular: { fontFamily: 'Outfit_400Regular', fontWeight: '400' as const },
+                medium: { fontFamily: 'Outfit_500Medium', fontWeight: '500' as const },
+                bold: { fontFamily: 'Outfit_700Bold', fontWeight: '700' as const },
+                heavy: { fontFamily: 'Outfit_700Bold', fontWeight: '700' as const },
+              },
+            }}
+          >
+            <StatusBar style="light" />
+            <RootNavigator />
+          </NavigationContainer>
+        </AppBackground>
+      </View>
+    </ErrorBoundary>
   );
 }
 
