@@ -4,5 +4,6 @@
     "strict": true,
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"] }
-  }
+  },
+  "exclude": ["landing", "worker", "backend", "node_modules"]
 }

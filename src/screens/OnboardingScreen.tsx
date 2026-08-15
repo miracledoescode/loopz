@@ -1,11 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   Pressable,
   StyleSheet,
-  Dimensions,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -18,16 +17,14 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { doc, setDoc } from 'firebase/firestore';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { db, auth } from '@/config/firebase';
 import { useAppStore } from '@/store/useAppStore';
-import { colors, fonts, spacing, radii, shadows } from '@/theme';
+import { colors, fonts, spacing, radii } from '@/theme';
 import { SPRING_BOUNCY, PRESS_SCALE } from '@/theme/animations';
 import type { Role, EnergyWindow } from '@/types';
 import { ROLES, WINDOWS } from '@/constants/profileOptions';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-
+import { Mascot } from '@/components/Mascot';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -37,16 +34,31 @@ export function OnboardingScreen() {
   const [role, setRole] = useState<Role>('developer');
   const [energyWindow, setEnergyWindow] = useState<EnergyWindow>('morning');
   const [todaysWin, setTodaysWin] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reactionCount, setReactionCount] = useState(0);
+
   const setProfile = useAppStore((s) => s.setProfile);
   const buttonScale = useSharedValue(1);
 
-  const buttonStyle = useAnimatedStyle(() => ({
+  const animatedButtonStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
   }));
 
+  const triggerReaction = () => setReactionCount((c) => c + 1);
+
+  // Map step index to reactive Mascot mood
+  const mascotMoods = ['happy', 'thinking', 'focused', 'celebrating'] as const;
+  const currentMascotMood = mascotMoods[step] || 'happy';
+
   async function finish() {
-    const profile = { name: name.trim(), role, energyWindow, todaysWin: todaysWin || 'Make progress' };
-    // Try to persist to Firestore if user is signed in, but don't block on it
+    setIsSubmitting(true);
+    const profile = {
+      name: name.trim() || 'Alex',
+      role,
+      energyWindow,
+      todaysWin: todaysWin.trim() || 'Make progress',
+    };
+
     const uid = auth.currentUser?.uid;
     if (uid) {
       try {
@@ -55,11 +67,11 @@ export function OnboardingScreen() {
         console.warn('Firestore save skipped:', err);
       }
     }
-    // Always set profile locally so the app proceeds
     setProfile(profile);
   }
 
   function handleNext() {
+    triggerReaction();
     if (step < 3) {
       setStep(step + 1);
     } else {
@@ -67,180 +79,297 @@ export function OnboardingScreen() {
     }
   }
 
+  function handleBack() {
+    triggerReaction();
+    if (step > 0) {
+      setStep(step - 1);
+    }
+  }
+
   return (
     <View style={styles.container}>
-      {/* Progress indicator */}
+      {/* Top Navigation Header */}
+      <View style={styles.topHeader}>
+        {step > 0 ? (
+          <Pressable onPress={handleBack} style={styles.headerButton}>
+            <Svg
+              width={20}
+              height={20}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={colors.textPrimary}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <Path d="m15 18-6-6 6-6" />
+            </Svg>
+          </Pressable>
+        ) : (
+          <View style={styles.headerButtonPlaceholder} />
+        )}
+
+        <Text style={styles.stepCounter}>{step + 1} of 4</Text>
+
+        <Pressable onPress={handleNext} style={styles.headerButton}>
+          <Text style={styles.skipHeaderText}>Skip</Text>
+        </Pressable>
+      </View>
+
+      {/* Segmented Progress Bar (Interactive - tap any segment to jump steps) */}
       <View style={styles.progressRow}>
         {[0, 1, 2, 3].map((i) => (
-          <View
+          <Pressable
             key={i}
-            style={[
-              styles.progressDot,
-              i === step && styles.progressDotActive,
-              i < step && styles.progressDotDone,
+            onPress={() => {
+              setStep(i);
+              triggerReaction();
+            }}
+            hitSlop={{ top: 14, bottom: 14, left: 4, right: 4 }}
+            style={({ pressed }) => [
+              styles.progressSegmentTouchable,
+              pressed && { opacity: 0.7 },
             ]}
-          />
+            accessibilityLabel={`Go to onboarding step ${i + 1}`}
+          >
+            <View
+              style={[
+                styles.progressSegment,
+                i === step && styles.progressSegmentActive,
+                i < step && styles.progressSegmentDone,
+              ]}
+            />
+          </Pressable>
         ))}
       </View>
 
-      {/* Step content */}
+      {/* Main Step Content */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.content}
       >
-        {step === 0 && (
-          <Animated.View
-            entering={FadeInRight.duration(400)}
-            exiting={FadeOutLeft.duration(300)}
-            style={styles.stepContainer}
-          >
-            <Text style={styles.stepLabel}>STEP 1 OF 4</Text>
-            <Text style={styles.heading}>What's your name?</Text>
-            <Text style={styles.subtext}>
-              So we know what to call you.
-            </Text>
-            <TextInput
-              style={styles.winInput}
-              placeholder="e.g. Alex"
-              placeholderTextColor={colors.textMuted}
-              value={name}
-              onChangeText={setName}
-              selectionColor={colors.accent}
-              autoFocus
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Centered Reactive Loopzy Mascot with Interactive Impulse */}
+          <View style={styles.mascotContainer}>
+            <Mascot
+              mood={currentMascotMood}
+              size={64}
+              reactionTrigger={reactionCount}
             />
-          </Animated.View>
-        )}
+          </View>
 
-        {step === 1 && (
-          <Animated.View
-            entering={FadeInRight.duration(400)}
-            exiting={FadeOutLeft.duration(300)}
-            style={styles.stepContainer}
-          >
-            <Text style={styles.stepLabel}>STEP 2 OF 4</Text>
-            <Text style={styles.heading}>What's your role?</Text>
-            <Text style={styles.subtext}>
-              This tunes how Loopz ranks what matters most for you.
-            </Text>
-            <View style={styles.roleGrid}>
-              {ROLES.map((r) => (
-                <Pressable
-                  key={r.value}
-                  onPress={() => setRole(r.value)}
-                  style={[
-                    styles.roleCard,
-                    role === r.value && styles.roleCardActive,
-                  ]}
-                >
-                  <Text style={styles.roleEmoji}>{r.emoji}</Text>
-                  <Text
-                    style={[
-                      styles.roleLabel,
-                      role === r.value && styles.roleLabelActive,
-                    ]}
-                  >
-                    {r.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </Animated.View>
-        )}
+          {/* Step 0: Username / Handle */}
+          {step === 0 && (
+            <Animated.View
+              entering={FadeInRight.duration(350)}
+              exiting={FadeOutLeft.duration(250)}
+              style={styles.stepContainerCentered}
+            >
+              <Text style={[styles.heading, styles.centeredText]}>What's your name?</Text>
+              <Text style={[styles.subtext, styles.centeredText]}>
+                Loopz will use this to personalize your focus sprints and daily wins.
+              </Text>
+              <TextInput
+                style={styles.pillInput}
+                placeholder="Enter your name or handle"
+                placeholderTextColor={colors.textMuted}
+                value={name}
+                onChangeText={setName}
+                selectionColor={colors.accent}
+                autoFocus
+              />
+            </Animated.View>
+          )}
 
-        {step === 2 && (
-          <Animated.View
-            entering={FadeInRight.duration(400)}
-            exiting={FadeOutLeft.duration(300)}
-            style={styles.stepContainer}
-          >
-            <Text style={styles.stepLabel}>STEP 3 OF 4</Text>
-            <Text style={styles.heading}>Peak energy window?</Text>
-            <Text style={styles.subtext}>
-              When are you sharpest? We'll bias high-focus tasks here.
-            </Text>
-            <View style={styles.windowList}>
-              {WINDOWS.map((w) => (
-                <Pressable
-                  key={w.value}
-                  onPress={() => setEnergyWindow(w.value)}
-                  style={[
-                    styles.windowCard,
-                    energyWindow === w.value && styles.windowCardActive,
-                  ]}
-                >
-                  <Text style={styles.windowEmoji}>{w.emoji}</Text>
-                  <View style={styles.windowText}>
-                    <Text
-                      style={[
-                        styles.windowLabel,
-                        energyWindow === w.value && styles.windowLabelActive,
+          {/* Step 1: Role & Focus Selection Grid (Matches Reference Wireframe) */}
+          {step === 1 && (
+            <Animated.View
+              entering={FadeInRight.duration(350)}
+              exiting={FadeOutLeft.duration(250)}
+              style={styles.stepContainer}
+            >
+              <Text style={styles.heading}>What do you want to focus on?</Text>
+              <Text style={styles.subtext}>
+                Select your primary area of focus for your daily micro-sprints.
+              </Text>
+              <View style={styles.pillsGrid}>
+                {ROLES.map((r) => {
+                  const isSelected = role === r.value;
+                  return (
+                    <Pressable
+                      key={r.value}
+                      onPress={() => {
+                        setRole(r.value);
+                        triggerReaction();
+                      }}
+                      style={({ pressed }) => [
+                        styles.rolePill,
+                        isSelected && styles.rolePillActive,
+                        pressed && styles.pillPressed,
                       ]}
                     >
-                      {w.label}
-                    </Text>
-                    <Text style={styles.windowTime}>{w.time}</Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
+                      {/* Left Circular Radio / Checkmark Indicator (Matches Reference Image) */}
+                      <View
+                        style={[
+                          styles.pillCheckCircle,
+                          isSelected && styles.pillCheckCircleActive,
+                        ]}
+                      >
+                        {isSelected ? (
+                          <Svg
+                            width={12}
+                            height={12}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#0D0D0F"
+                            strokeWidth={3}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <Path d="M20 6L9 17l-5-5" />
+                          </Svg>
+                        ) : null}
+                      </View>
+                      <Text
+                        style={[
+                          styles.rolePillText,
+                          isSelected && styles.rolePillTextActive,
+                        ]}
+                      >
+                        {r.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Animated.View>
+          )}
 
-            <Pressable onPress={handleNext}>
-              <Text style={styles.skipText}>Skip — I'll take any time</Text>
-            </Pressable>
-          </Animated.View>
-        )}
+          {/* Step 2: Peak Energy Window */}
+          {step === 2 && (
+            <Animated.View
+              entering={FadeInRight.duration(350)}
+              exiting={FadeOutLeft.duration(250)}
+              style={styles.stepContainer}
+            >
+              <Text style={styles.heading}>When is your peak energy?</Text>
+              <Text style={styles.subtext}>
+                Select when you are sharpest so Loopz can align high-focus sprints during your peak hours.
+              </Text>
+              <View style={styles.windowList}>
+                {WINDOWS.map((w) => {
+                  const isSelected = energyWindow === w.value;
+                  return (
+                    <Pressable
+                      key={w.value}
+                      onPress={() => {
+                        setEnergyWindow(w.value);
+                        triggerReaction();
+                      }}
+                      style={({ pressed }) => [
+                        styles.windowCard,
+                        isSelected && styles.windowCardActive,
+                        pressed && styles.pillPressed,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.pillCheckCircle,
+                          isSelected && styles.pillCheckCircleActive,
+                        ]}
+                      >
+                        {isSelected ? (
+                          <Svg
+                            width={12}
+                            height={12}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#0D0D0F"
+                            strokeWidth={3}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <Path d="M20 6L9 17l-5-5" />
+                          </Svg>
+                        ) : null}
+                      </View>
+                      <View style={styles.windowTextGroup}>
+                        <Text
+                          style={[
+                            styles.windowLabel,
+                            isSelected && styles.windowLabelActive,
+                          ]}
+                        >
+                          {w.label}
+                        </Text>
+                        <Text style={styles.windowTime}>{w.time}</Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Animated.View>
+          )}
 
-        {step === 3 && (
-          <Animated.View
-            entering={FadeInRight.duration(400)}
-            exiting={FadeOutLeft.duration(300)}
-            style={styles.stepContainer}
+          {/* Step 3: Today's Win Goal */}
+          {step === 3 && (
+            <Animated.View
+              entering={FadeInRight.duration(350)}
+              exiting={FadeOutLeft.duration(250)}
+              style={styles.stepContainerCentered}
+            >
+              <Text style={[styles.heading, styles.centeredText]}>What does a win look like today?</Text>
+              <Text style={[styles.subtext, styles.centeredText]}>
+                One main outcome to anchor your sprint focus for the day.
+              </Text>
+              <TextInput
+                style={styles.pillInput}
+                placeholder="e.g. Ship the core feature MVP"
+                placeholderTextColor={colors.textMuted}
+                value={todaysWin}
+                onChangeText={setTodaysWin}
+                selectionColor={colors.accent}
+                autoFocus
+              />
+            </Animated.View>
+          )}
+        </ScrollView>
+
+        {/* Bottom CTA Action Bar (Matches Reference Wireframe: Text + Right Arrow) */}
+        <View style={styles.bottomCtaSection}>
+          <AnimatedPressable
+            style={[styles.primaryCta, animatedButtonStyle]}
+            onPress={handleNext}
+            onPressIn={() => {
+              buttonScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);
+            }}
+            onPressOut={() => {
+              buttonScale.value = withSpring(1, SPRING_BOUNCY);
+            }}
           >
-            <Text style={styles.stepLabel}>STEP 4 OF 4</Text>
-            <Text style={styles.heading}>What does a win look like today?</Text>
-            <Text style={styles.subtext}>
-              One sentence. This anchors every decision Loopz makes for you.
+            <Text style={styles.primaryCtaText}>
+              {step === 3 ? 'Get Started' : 'Continue'}
             </Text>
-            <TextInput
-              style={styles.winInput}
-              placeholder="e.g. ship the onboarding flow"
-              placeholderTextColor={colors.textMuted}
-              value={todaysWin}
-              onChangeText={setTodaysWin}
-              selectionColor={colors.accent}
-              autoFocus
-            />
-
-            <Pressable onPress={handleNext}>
-              <Text style={styles.skipText}>Skip — surprise me</Text>
-            </Pressable>
-          </Animated.View>
-        )}
+            <Svg
+              width={20}
+              height={20}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#F4F4F5"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <Path d="M5 12h14" />
+              <Path d="m12 5 7 7-7 7" />
+            </Svg>
+          </AnimatedPressable>
+        </View>
       </KeyboardAvoidingView>
-
-      {/* CTA */}
-      <View style={styles.ctaContainer}>
-        <AnimatedPressable
-          style={[styles.cta, buttonStyle]}
-          onPress={handleNext}
-          onPressIn={() => {
-            buttonScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);
-          }}
-          onPressOut={() => {
-            buttonScale.value = withSpring(1, SPRING_BOUNCY);
-          }}
-        >
-          <Text style={styles.ctaText}>
-            {step < 3 ? 'Next' : "Let's go"}
-          </Text>
-        </AnimatedPressable>
-
-        {step > 0 && (
-          <Pressable onPress={() => setStep(step - 1)} style={styles.backButton}>
-            <Text style={styles.backText}>Back</Text>
-          </Pressable>
-        )}
-      </View>
     </View>
   );
 }
@@ -249,167 +378,208 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+    paddingTop: Platform.OS === 'ios' ? 54 : 32,
+  },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingTop: 80,
-    paddingBottom: 40,
+    height: 44,
+  },
+  headerButton: {
+    padding: spacing.xs,
+    minWidth: 44,
+  },
+  headerButtonPlaceholder: {
+    minWidth: 44,
+  },
+  stepCounter: {
+    fontFamily: fonts.monoLight,
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  skipHeaderText: {
+    fontFamily: fonts.headingMedium,
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: 'right',
   },
   progressRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.xxl,
+    paddingHorizontal: spacing.lg,
+    gap: 6,
+    marginVertical: spacing.md,
   },
-  progressDot: {
+  progressSegmentTouchable: {
     flex: 1,
+    paddingVertical: 4,
+  },
+  progressSegment: {
+    width: '100%',
     height: 3,
     borderRadius: 2,
-    backgroundColor: colors.bgCard,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  progressDotActive: {
+  progressSegmentActive: {
     backgroundColor: colors.accent,
   },
-  progressDotDone: {
+  progressSegmentDone: {
     backgroundColor: colors.accent,
-    opacity: 0.4,
+    opacity: 0.6,
   },
   content: {
     flex: 1,
+    paddingHorizontal: spacing.lg,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxl,
+  },
+  mascotContainer: {
+    alignItems: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.xl,
   },
   stepContainer: {
     flex: 1,
+    justifyContent: 'center',
   },
-  stepLabel: {
-    fontFamily: fonts.headingMedium,
-    fontSize: 12,
-    color: colors.accent,
-    letterSpacing: 2,
-    marginBottom: spacing.md,
+  stepContainerCentered: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  centeredText: {
+    textAlign: 'center',
   },
   heading: {
     fontFamily: fonts.heading,
-    fontSize: 30,
+    fontSize: 26,
     color: colors.textPrimary,
-    letterSpacing: -0.8,
-    marginBottom: spacing.sm,
+    letterSpacing: -0.5,
+    marginBottom: spacing.xs,
+    textAlign: 'left',
   },
   subtext: {
     fontFamily: fonts.body,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textSecondary,
-    lineHeight: 22,
+    lineHeight: 20,
     marginBottom: spacing.xl,
   },
-  // Role cards
-  roleGrid: {
+  pillInput: {
+    borderWidth: 0,
+    borderRadius: radii.md,
+    backgroundColor: colors.bgInput,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 14,
+    fontFamily: fonts.body,
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  // Pill Grid (Matches Uploaded Reference Image)
+  pillsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  roleCard: {
-    width: (SCREEN_WIDTH - spacing.lg * 2 - spacing.sm * 2) / 3,
-    aspectRatio: 1,
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.xl,
+  rolePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    borderRadius: radii.md,
+    backgroundColor: colors.bgInput,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    gap: 10,
+  },
+  rolePillActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  pillPressed: {
+    opacity: 0.85,
+  },
+  pillCheckCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.textMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
   },
-  roleCardActive: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentDim,
+  pillCheckCircleActive: {
+    backgroundColor: colors.accent,
+    borderColor: '#0D0D0F',
   },
-  roleEmoji: {
-    fontSize: 28,
-  },
-  roleLabel: {
+  rolePillText: {
     fontFamily: fonts.headingMedium,
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
-  roleLabelActive: {
-    color: colors.accent,
+  rolePillTextActive: {
+    color: '#0D0D0F',
+    fontFamily: fonts.heading,
   },
-  // Energy window cards
+  // Energy Window Cards
   windowList: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   windowCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.xl,
-    padding: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    backgroundColor: colors.bgInput,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   windowCardActive: {
     borderColor: colors.accent,
     backgroundColor: colors.accentDim,
   },
-  windowEmoji: {
-    fontSize: 28,
-  },
-  windowText: {
+  windowTextGroup: {
     gap: 2,
   },
   windowLabel: {
     fontFamily: fonts.headingMedium,
-    fontSize: 17,
-    color: colors.textPrimary,
+    fontSize: 15,
+    color: colors.textSecondary,
   },
   windowLabelActive: {
-    color: colors.accent,
+    color: colors.textPrimary,
   },
   windowTime: {
     fontFamily: fonts.monoLight,
     fontSize: 12,
     color: colors.textMuted,
   },
-  // Win input
-  winInput: {
-    borderWidth: 1.5,
-    borderColor: colors.glassBorder,
-    borderRadius: radii.xl,
-    backgroundColor: colors.bgInput,
-    padding: spacing.lg,
-    fontFamily: fonts.body,
-    fontSize: 17,
-    color: colors.textPrimary,
-  },
-  skipText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: spacing.lg,
-  },
-  // CTA
-  ctaContainer: {
-    gap: spacing.md,
+  // Bottom Action Bar (Matches Reference Wireframe)
+  bottomCtaSection: {
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
     paddingTop: spacing.md,
   },
-  cta: {
-    backgroundColor: colors.accent,
-    borderRadius: radii.pill,
-    paddingVertical: 18,
+  primaryCta: {
+    flexDirection: 'row',
     alignItems: 'center',
-    ...shadows.accentGlow,
+    justifyContent: 'space-between',
+    backgroundColor: '#272936',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: radii.md,
+    height: 52,
+    paddingHorizontal: spacing.xl,
+    width: '100%',
   },
-  ctaText: {
+  primaryCtaText: {
     fontFamily: fonts.heading,
-    fontSize: 17,
-    color: colors.bg,
-    letterSpacing: -0.3,
-  },
-  backButton: {
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  backText: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: colors.textSecondary,
+    fontSize: 16,
+    color: '#F4F4F5',
+    letterSpacing: -0.2,
   },
 });

@@ -48,7 +48,9 @@ export async function rankTaskLocal(
   const result = await response.json();
   const taskData = result.task;
 
-  // Create a new document reference to get a unique ID
+  if (!auth.currentUser) {
+    throw new Error('User is not authenticated');
+  }
   const taskRef = doc(collection(db, `users/${auth.currentUser.uid}/tasks`));
   const task: Task = {
     id: taskRef.id,

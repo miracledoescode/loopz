@@ -15,15 +15,14 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { doc, setDoc } from 'firebase/firestore';
+import Svg, { Path } from 'react-native-svg';
 import { db, auth } from '@/config/firebase';
 import { useAppStore } from '@/store/useAppStore';
-import { colors, fonts, spacing, radii, shadows } from '@/theme';
+import { colors, fonts, spacing, radii } from '@/theme';
 import { SPRING_BOUNCY, PRESS_SCALE } from '@/theme/animations';
 import type { Role, EnergyWindow } from '@/types';
 import { ROLES, WINDOWS } from '@/constants/profileOptions';
 import { useNavigation } from '@react-navigation/native';
-
-
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -37,7 +36,6 @@ export function EditProfileScreen() {
   const [energyWindow, setEnergyWindow] = useState<EnergyWindow>(
     profile?.energyWindow ?? 'morning'
   );
-  const [todaysWin, setTodaysWin] = useState(profile?.todaysWin ?? '');
 
   const buttonScale = useSharedValue(1);
   const buttonStyle = useAnimatedStyle(() => ({
@@ -46,9 +44,20 @@ export function EditProfileScreen() {
 
   async function handleSave() {
     const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    const updated = { name: name.trim(), role, energyWindow, todaysWin: todaysWin || 'Make progress' };
-    await setDoc(doc(db, 'users', uid), updated, { merge: true });
+    const updated = {
+      name: name.trim() || 'Alex',
+      role,
+      energyWindow,
+      todaysWin: profile?.todaysWin || 'Make progress',
+    };
+
+    if (uid) {
+      try {
+        await setDoc(doc(db, 'users', uid), updated, { merge: true });
+      } catch (err) {
+        console.warn('Firestore profile update skipped:', err);
+      }
+    }
     setProfile(updated);
     navigation.goBack();
   }
@@ -58,85 +67,122 @@ export function EditProfileScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      {/* Header */}
+      {/* Top Header Navigation */}
       <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.headerButton}>
+          <Svg
+            width={20}
+            height={20}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={colors.textPrimary}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <Path d="m15 18-6-6 6-6" />
+          </Svg>
+        </Pressable>
         <Text style={styles.heading}>Edit Profile</Text>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelText}>Cancel</Text>
+        <Pressable onPress={handleSave} style={styles.headerButton}>
+          <Text style={styles.headerSaveText}>Save</Text>
         </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Name */}
-        <Text style={styles.sectionLabel}>NAME</Text>
-        <TextInput
-          style={styles.winInput}
-          placeholder="What should we call you?"
-          placeholderTextColor={colors.textMuted}
-          value={name}
-          onChangeText={setName}
-          selectionColor={colors.accent}
-        />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.contentWrapper}>
+          {/* Group 1: ABOUT YOU */}
+          <View style={styles.groupSection}>
+            <Text style={styles.groupTitle}>ABOUT YOU</Text>
 
-        {/* Role */}
-        <Text style={styles.sectionLabel}>ROLE</Text>
-        <View style={styles.chipRow}>
-          {ROLES.map((r) => (
-            <Pressable
-              key={r.value}
-              onPress={() => setRole(r.value)}
-              style={[styles.chip, role === r.value && styles.chipActive]}
+            {/* Name Field */}
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>NAME</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="What should we call you?"
+                placeholderTextColor={colors.textMuted}
+                value={name}
+                onChangeText={setName}
+                selectionColor={colors.accent}
+              />
+            </View>
+
+            {/* Role Selection Grid */}
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>ROLE</Text>
+              <View style={styles.chipRow}>
+                {ROLES.map((r) => {
+                  const isSelected = role === r.value;
+                  return (
+                    <Pressable
+                      key={r.value}
+                      onPress={() => setRole(r.value)}
+                      style={[styles.chip, isSelected && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                        {r.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+
+          {/* Group 2: YOUR RHYTHM */}
+          <View style={styles.groupSection}>
+            <Text style={styles.groupTitle}>YOUR RHYTHM</Text>
+            <Text style={styles.fieldSubLabel}>WHEN ARE YOU MOST PRODUCTIVE?</Text>
+            <View style={styles.chipRow}>
+              {WINDOWS.map((w) => {
+                const isSelected = energyWindow === w.value;
+                return (
+                  <Pressable
+                    key={w.value}
+                    onPress={() => setEnergyWindow(w.value)}
+                    style={[styles.chip, isSelected && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                      {w.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Group 3: Primary Action directly after the form */}
+          <View style={styles.ctaContainer}>
+            <AnimatedPressable
+              style={[styles.cta, buttonStyle]}
+              onPress={handleSave}
+              onPressIn={() => {
+                buttonScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);
+              }}
+              onPressOut={() => {
+                buttonScale.value = withSpring(1, SPRING_BOUNCY);
+              }}
             >
-              <Text style={styles.chipEmoji}>{r.emoji}</Text>
-              <Text style={[styles.chipText, role === r.value && styles.chipTextActive]}>
-                {r.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Energy window */}
-        <Text style={styles.sectionLabel}>ENERGY WINDOW</Text>
-        <View style={styles.chipRow}>
-          {WINDOWS.map((w) => (
-            <Pressable
-              key={w.value}
-              onPress={() => setEnergyWindow(w.value)}
-              style={[styles.chip, energyWindow === w.value && styles.chipActive]}
-            >
-              <Text style={styles.chipEmoji}>{w.emoji}</Text>
-              <Text style={[styles.chipText, energyWindow === w.value && styles.chipTextActive]}>
-                {w.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Today's win */}
-        <Text style={styles.sectionLabel}>TODAY'S WIN</Text>
-        <TextInput
-          style={styles.winInput}
-          placeholder="What does a win look like today?"
-          placeholderTextColor={colors.textMuted}
-          value={todaysWin}
-          onChangeText={setTodaysWin}
-          selectionColor={colors.accent}
-        />
-
-        {/* Save */}
-        <View style={styles.ctaContainer}>
-          <AnimatedPressable
-            style={[styles.cta, buttonStyle]}
-            onPress={handleSave}
-            onPressIn={() => {
-              buttonScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);
-            }}
-            onPressOut={() => {
-              buttonScale.value = withSpring(1, SPRING_BOUNCY);
-            }}
-          >
-            <Text style={styles.ctaText}>Save</Text>
-          </AnimatedPressable>
+              <Text style={styles.ctaText}>Save changes</Text>
+              <Svg
+                width={18}
+                height={18}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#F4F4F5"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <Path d="M5 12h14" />
+                <Path d="m12 5 7 7-7 7" />
+              </Svg>
+            </AnimatedPressable>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -147,38 +193,77 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
-    paddingTop: 70,
+    paddingTop: Platform.OS === 'ios' ? 54 : 32,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    height: 48,
+    marginBottom: spacing.md,
+  },
+  headerButton: {
+    padding: spacing.xs,
+    minWidth: 44,
+  },
+  heading: {
+    fontFamily: fonts.heading,
+    fontSize: 20,
+    color: colors.textPrimary,
+    letterSpacing: -0.4,
+  },
+  headerSaveText: {
+    fontFamily: fonts.headingMedium,
+    fontSize: 15,
+    color: colors.accent,
+    textAlign: 'right',
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-    paddingHorizontal: spacing.lg,
+  contentWrapper: {
+    maxWidth: 440,
+    alignSelf: 'center',
+    width: '100%',
+    gap: spacing.xl,
   },
-  heading: {
-    fontFamily: fonts.heading,
-    fontSize: 24,
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
+  groupSection: {
+    gap: spacing.md,
   },
-  cancelText: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: colors.textSecondary,
-  },
-  sectionLabel: {
+  groupTitle: {
     fontFamily: fonts.headingMedium,
     fontSize: 11,
-    color: colors.accent,
-    letterSpacing: 2,
-    marginBottom: spacing.sm,
-    marginTop: spacing.lg,
+    color: colors.textMuted,
+    letterSpacing: 1.5,
+    marginBottom: 2,
+  },
+  fieldBlock: {
+    gap: spacing.xs + 2,
+  },
+  fieldLabel: {
+    fontFamily: fonts.headingMedium,
+    fontSize: 12,
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  fieldSubLabel: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: 4,
+  },
+  input: {
+    borderWidth: 0,
+    borderRadius: radii.md,
+    backgroundColor: colors.bgInput,
+    paddingHorizontal: spacing.md,
+    height: 48,
+    fontFamily: fonts.body,
+    fontSize: 15,
+    color: colors.textPrimary,
   },
   chipRow: {
     flexDirection: 'row',
@@ -186,22 +271,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: radii.pill,
-    backgroundColor: colors.bgCard,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.bgInput,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   chipActive: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentDim,
-  },
-  chipEmoji: {
-    fontSize: 16,
+    backgroundColor: '#272936',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   chipText: {
     fontFamily: fonts.headingMedium,
@@ -209,34 +288,28 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   chipTextActive: {
-    color: colors.accent,
-  },
-  winInput: {
-    borderWidth: 1.5,
-    borderColor: colors.glassBorder,
-    borderRadius: radii.xl,
-    backgroundColor: colors.bgInput,
-    padding: spacing.md,
-    fontFamily: fonts.body,
-    fontSize: 16,
-    color: colors.textPrimary,
+    color: '#F4F4F5',
+    fontFamily: fonts.heading,
   },
   ctaContainer: {
-    marginTop: spacing.xl,
-    justifyContent: 'flex-end',
-    flex: 1,
+    marginTop: spacing.md,
   },
   cta: {
-    backgroundColor: colors.accent,
-    borderRadius: radii.pill,
-    paddingVertical: 18,
+    flexDirection: 'row',
     alignItems: 'center',
-    ...shadows.accentGlow,
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#272936',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: radii.md,
+    height: 50,
+    width: '100%',
   },
   ctaText: {
     fontFamily: fonts.heading,
-    fontSize: 17,
-    color: colors.bg,
-    letterSpacing: -0.3,
+    fontSize: 16,
+    color: '#F4F4F5',
+    letterSpacing: -0.2,
   },
 });
