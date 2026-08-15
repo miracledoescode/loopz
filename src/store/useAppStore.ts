@@ -6,6 +6,8 @@ import type { UserProfile, Task } from '@/types';
 interface AppState {
   // ─── Profile ───────────────────────────────────────────────
   profile: UserProfile | null;
+  isPro: boolean;
+  setIsPro: (p: boolean) => void;
   setProfile: (p: UserProfile) => void;
   clearProfile: () => void;
 
@@ -30,8 +32,10 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       // ─── Profile ─────────────────────────────────────────
       profile: null,
+      isPro: false,
+      setIsPro: (isPro) => set({ isPro }),
       setProfile: (profile) => set({ profile }),
-      clearProfile: () => set({ profile: null }),
+      clearProfile: () => set({ profile: null, isPro: false }),
 
       // ─── Task & Dumps ────────────────────────────────────
       currentTask: null,

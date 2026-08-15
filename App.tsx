@@ -21,6 +21,10 @@ import { colors, fonts } from '@/theme';
 import { ErrorScreen } from '@/components/ErrorScreen';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AppBackground } from '@/components/AppBackground';
+import Purchases, { LOG_LEVEL } from 'react-native-purchases';
+import { useAppStore } from '@/store/useAppStore';
+
+const RC_API_KEY_GOOGLE = 'goog_grIaXTCdlranHXinEgHTONrYpgH';
 
 // Keep splash visible while loading fonts + auth
 // SplashScreen.preventAutoHideAsync() may not be available in all Expo versions,
@@ -44,7 +48,24 @@ export default function App() {
   const handleAuth = useCallback(async () => {
     try {
       setAuthError(null);
-      await signInAnonymously(auth);
+      const userCred = await signInAnonymously(auth);
+      
+      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+      Purchases.configure({ apiKey: RC_API_KEY_GOOGLE, appUserID: userCred.user.uid });
+
+      const customerInfo = await Purchases.getCustomerInfo();
+      if (typeof customerInfo.entitlements.active['pro'] !== 'undefined') {
+        useAppStore.getState().setIsPro(true);
+      }
+
+      Purchases.addCustomerInfoUpdateListener((info) => {
+        if (typeof info.entitlements.active['pro'] !== 'undefined') {
+          useAppStore.getState().setIsPro(true);
+        } else {
+          useAppStore.getState().setIsPro(false);
+        }
+      });
+
       setAuthReady(true);
     } catch (err: any) {
       console.error('Auth error:', err);

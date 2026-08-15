@@ -21,6 +21,8 @@ import Animated, {
   withTiming,
   withSpring,
   interpolateColor,
+  FadeIn,
+  FadeOut,
 } from 'react-native-reanimated';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { useAppStore } from '@/store/useAppStore';
@@ -52,6 +54,7 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const recordAnim = useSharedValue(0);
 
   const canSubmit = !loading && (text.trim().length > 0 || isRecording);
@@ -64,8 +67,8 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
     transform: [{ scale: recordScale.value }],
     backgroundColor: interpolateColor(
       recordAnim.value,
-      [0, 1],
-      [colors.bgCard, colors.error]
+      [0, 0.5, 1],
+      [colors.bgCard, '#b58500', colors.error] // yellow when paused, red when recording
     ),
   }));
 
@@ -84,6 +87,7 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
       await recorder.prepareToRecordAsync();
       recorder.record();
       setIsRecording(true);
+      setIsPaused(false);
       recordAnim.value = withTiming(1, { duration: 300 });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (err) {
@@ -91,9 +95,43 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
     }
   }
 
+  async function togglePause() {
+    if (!isRecording) return;
+    try {
+      if (isPaused) {
+        recorder.record();
+        setIsPaused(false);
+        recordAnim.value = withTiming(1, { duration: 300 });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else {
+        recorder.pause();
+        setIsPaused(true);
+        recordAnim.value = withTiming(0.5, { duration: 300 });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } catch (err) {
+      console.error('Failed to toggle pause', err);
+    }
+  }
+
+  async function cancelRecording() {
+    if (!isRecording) return;
+    setIsRecording(false);
+    setIsPaused(false);
+    recordAnim.value = withTiming(0, { duration: 300 });
+    try {
+      await recorder.stop();
+      await setAudioModeAsync({ allowsRecording: false });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (err) {
+      console.error('Failed to cancel recording', err);
+    }
+  }
+
   async function stopRecording() {
     if (!isRecording) return;
     setIsRecording(false);
+    setIsPaused(false);
     recordAnim.value = withTiming(0, { duration: 300 });
     try {
       await recorder.stop();
@@ -136,13 +174,6 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* Action Header with Personality Copy */}
-      <View style={styles.headerSection}>
-        <Text style={styles.prompt}>Clear your head.</Text>
-        <Text style={styles.subtext}>
-          Dump everything taking up space. I'll help you sort it out.
-        </Text>
-      </View>
 
       {/* Writing Surface with Taller Textarea & Embedded Mic */}
       <View style={styles.inputWrapper}>
@@ -166,21 +197,69 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
             <View />
           )}
 
-          <AnimatedPressable
-            style={[styles.embeddedMicButton, recordButtonStyle]}
-            onPress={isRecording ? stopRecording : startRecording}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {isRecording && (
+              <AnimatedPressable
+                entering={FadeIn}
+                exiting={FadeOut}
+                onPress={cancelRecording}
+                style={styles.cancelMicButton}
+              >
+                <Svg
+                  width={18}
+                  height={18}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={colors.textMuted}
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <Path d="M18 6L6 18M6 6l12 12" />
+                </Svg>
+              </AnimatedPressable>
+            )}
+
+            <AnimatedPressable
+              style={[styles.embeddedMicButton, recordButtonStyle]}
+            onPress={isRecording ? togglePause : startRecording}
             onPressIn={() => {
-              recordScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);
+              if (!isRecording) recordScale.value = withTiming(0.9);
             }}
             onPressOut={() => {
-              recordScale.value = withSpring(1, SPRING_BOUNCY);
+              if (!isRecording) recordScale.value = withTiming(1);
             }}
-            accessibilityLabel={isRecording ? 'Stop recording' : 'Start voice recording'}
           >
             {isRecording ? (
-              <Svg width={14} height={14} viewBox="0 0 24 24" fill={colors.textPrimary}>
-                <Rect x={6} y={6} width={12} height={12} rx={2} />
-              </Svg>
+              <Animated.View entering={FadeIn} exiting={FadeOut}>
+                {isPaused ? (
+                  <Svg
+                    width={18}
+                    height={18}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#fff"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <Path d="M5 3l14 9-14 9V3z" />
+                  </Svg>
+                ) : (
+                  <Svg
+                    width={18}
+                    height={18}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#fff"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <Path d="M6 4h4v16H6zM14 4h4v16h-4z" />
+                  </Svg>
+                )}
+              </Animated.View>
             ) : (
               <Svg
                 width={18}
@@ -198,6 +277,7 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
               </Svg>
             )}
           </AnimatedPressable>
+          </View>
         </View>
       </View>
 
@@ -242,60 +322,7 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
         </AnimatedPressable>
       )}
 
-      {/* Layer 2: QUICK START Assistance Prompts */}
-      <View style={styles.sectionDivider}>
-        <Text style={styles.sectionHeader}>QUICK START</Text>
-        <View style={styles.promptsGrid}>
-          {QUICK_PROMPTS.map((prompt) => (
-            <Pressable
-              key={prompt}
-              onPress={() => handlePromptSelect(prompt)}
-              style={({ pressed }) => [
-                styles.promptChip,
-                pressed && styles.promptChipPressed,
-              ]}
-            >
-              <Text style={styles.promptChipText}>{prompt}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
 
-      {/* Layer 3: RECENT Continuity Thought History */}
-      {recentDumps.length > 0 && (
-        <View style={styles.sectionDivider}>
-          <Text style={styles.sectionHeader}>RECENT</Text>
-          <View style={styles.recentList}>
-            {recentDumps.map((recentItem, idx) => (
-              <Pressable
-                key={idx}
-                onPress={() => handleRecentSelect(recentItem)}
-                style={({ pressed }) => [
-                  styles.recentRow,
-                  pressed && styles.recentRowPressed,
-                ]}
-              >
-                <Svg
-                  width={14}
-                  height={14}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={colors.textMuted}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <Circle cx={12} cy={12} r={10} />
-                  <Path d="M12 6v6l4 2" />
-                </Svg>
-                <Text style={styles.recentText} numberOfLines={1}>
-                  {recentItem}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -369,6 +396,16 @@ const styles = StyleSheet.create({
     height: 48,
     width: '100%',
     marginBottom: spacing.sm,
+  },
+  cancelMicButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   ctaDisabled: {
     backgroundColor: '#1E202A',

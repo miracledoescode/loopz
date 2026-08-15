@@ -44,6 +44,10 @@ export function TodayScreen({ navigation }: any) {
     try {
       await submitBrainDump(text, audioData);
     } catch (err: any) {
+      if (err?.message === 'PAYWALL') {
+        navigation.navigate('Paywall');
+        return;
+      }
       console.error('Brain dump error:', err);
       setError(err?.message || 'Failed to analyze thoughts. Please try again.');
     } finally {
@@ -81,9 +85,16 @@ export function TodayScreen({ navigation }: any) {
       >
         {/* Top Header Row with Subtle Settings Icon */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>
-            {greeting}{profile?.name ? `, ${profile.name}` : ''}
-          </Text>
+          <View style={styles.greetingWrapper}>
+            <Text style={styles.greeting}>
+              {greeting}{profile?.name ? `, ${profile.name}` : ''}
+            </Text>
+            {useAppStore.getState().isPro && (
+              <View style={styles.proPill}>
+                <Text style={styles.proPillText}>PRO</Text>
+              </View>
+            )}
+          </View>
           <Pressable
             accessibilityLabel="Edit profile"
             accessibilityRole="button"
@@ -126,7 +137,9 @@ export function TodayScreen({ navigation }: any) {
 
         {/* Primary Screen Interaction: Main Brain Dump Surface (Pulled Up) */}
         {!currentTask || loading ? (
-          <BrainDumpInput onSubmit={handleDump} loading={loading} />
+          <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 60 }}>
+            <BrainDumpInput onSubmit={handleDump} loading={loading} />
+          </View>
         ) : currentTask.status === 'done' ? (
           <Animated.View entering={FadeIn.duration(500)} style={styles.doneContainer}>
             <Mascot mood="celebrating" size={80} />
@@ -158,7 +171,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'ios' ? 52 : 28,
+    paddingTop: Platform.OS === 'ios' ? 70 : 54,
     paddingBottom: spacing.xl,
     maxWidth: 480,
     alignSelf: 'center',
@@ -168,13 +181,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  greetingWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
   },
   greeting: {
     fontFamily: fonts.heading,
     fontSize: 20,
     color: colors.textPrimary,
     letterSpacing: -0.4,
+  },
+  proPill: {
+    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
+  },
+  proPillText: {
+    color: colors.accent,
+    fontFamily: fonts.headingMedium,
+    fontSize: 10,
+    letterSpacing: 1,
   },
   subtleSettingsButton: {
     width: 32,

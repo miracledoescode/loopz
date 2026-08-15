@@ -133,12 +133,12 @@ export function EditProfileScreen() {
             </View>
           </View>
 
-          {/* Group 2: YOUR RHYTHM */}
+          {/* Group 2: Rhythm/Productivity */}
           <View style={styles.groupSection}>
-            <Text style={styles.groupTitle}>YOUR RHYTHM</Text>
-            <Text style={styles.fieldSubLabel}>WHEN ARE YOU MOST PRODUCTIVE?</Text>
-            <View style={styles.chipRow}>
-              {WINDOWS.map((w) => {
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>WHEN ARE YOU MOST PRODUCTIVE?</Text>
+              <View style={styles.chipRow}>
+                {WINDOWS.map((w) => {
                 const isSelected = energyWindow === w.value;
                 return (
                   <Pressable
@@ -152,6 +152,7 @@ export function EditProfileScreen() {
                   </Pressable>
                 );
               })}
+            </View>
             </View>
           </View>
 
