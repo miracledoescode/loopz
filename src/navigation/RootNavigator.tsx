@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAppStore } from '@/store/useAppStore';
 import { OnboardingScreen } from '@/screens/OnboardingScreen';
+import { AuthScreen } from '@/screens/AuthScreen';
 import { TodayScreen } from '@/screens/TodayScreen';
 import { SprintScreen } from '@/screens/SprintScreen';
 import { EditProfileScreen } from '@/screens/EditProfileScreen';
@@ -9,6 +10,7 @@ import { colors } from '@/theme';
 
 export type RootStackParamList = {
   Onboarding: undefined;
+  Auth: undefined;
   Today: undefined;
   Sprint: undefined;
   EditProfile: undefined;
@@ -28,9 +30,28 @@ export function RootNavigator() {
       }}
     >
       {!profile ? (
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <>
+          {/* Step 1: Onboarding starts FIRST */}
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+
+          {/* Step 2: Account Login / Signup screen */}
+          <Stack.Screen
+            name="Auth"
+            options={{ animation: 'slide_from_right' }}
+          >
+            {({ navigation }) => (
+              <AuthScreen
+                onSuccess={() => {
+                  // Setting profile triggers transition to main workspace stack automatically
+                }}
+                onSkipToOnboarding={() => navigation.navigate('Onboarding')}
+              />
+            )}
+          </Stack.Screen>
+        </>
       ) : (
         <>
+          {/* Main Workspace once Profile is set */}
           <Stack.Screen name="Today" component={TodayScreen} />
           <Stack.Screen
             name="Sprint"

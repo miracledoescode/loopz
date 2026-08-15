@@ -9,11 +9,13 @@ interface AppState {
   setProfile: (p: UserProfile) => void;
   clearProfile: () => void;
 
-  // ─── Task ──────────────────────────────────────────────────
+  // ─── Task & Dumps ──────────────────────────────────────────
   currentTask: Task | null;
   lastDumpText: string;
+  recentDumps: string[];
   setCurrentTask: (t: Task | null) => void;
   setLastDumpText: (text: string) => void;
+  addRecentDump: (text: string) => void;
 
   // ─── Sprint ────────────────────────────────────────────────
   activeMicroStepIndex: number;
@@ -31,24 +33,31 @@ export const useAppStore = create<AppState>()(
       setProfile: (profile) => set({ profile }),
       clearProfile: () => set({ profile: null }),
 
-      // ─── Task ────────────────────────────────────────────
+      // ─── Task & Dumps ────────────────────────────────────
       currentTask: null,
       lastDumpText: '',
+      recentDumps: [
+        "Finish physics assignment and review notes",
+        "Plan weekend side-project architecture",
+      ],
       setCurrentTask: (currentTask) =>
         set({ currentTask, activeMicroStepIndex: 0 }),
       setLastDumpText: (lastDumpText) => set({ lastDumpText }),
+      addRecentDump: (text) =>
+        set((state) => {
+          if (!text || state.recentDumps.includes(text)) return state;
+          return { recentDumps: [text, ...state.recentDumps].slice(0, 5) };
+        }),
 
       // ─── Sprint ──────────────────────────────────────────
       activeMicroStepIndex: 0,
-      startSprint: () =>
-        set({}),
+      startSprint: () => set({}),
 
       advanceMicroStep: () =>
         set((state) => {
           const task = state.currentTask;
           if (!task) return {};
           const nextIndex = state.activeMicroStepIndex + 1;
-          // Mark current step as done in the task's microSteps
           const updatedSteps = task.microSteps.map((step, i) =>
             i === state.activeMicroStepIndex ? { ...step, done: true } : step
           );
@@ -77,11 +86,11 @@ export const useAppStore = create<AppState>()(
     {
       name: 'loopz-app-store',
       storage: createJSONStorage(() => AsyncStorage),
-      // Only persist profile and current task state — not ephemeral sprint timing
       partialize: (state) => ({
         profile: state.profile,
         currentTask: state.currentTask,
         lastDumpText: state.lastDumpText,
+        recentDumps: state.recentDumps,
         activeMicroStepIndex: state.activeMicroStepIndex,
       }),
     }
