@@ -52,22 +52,26 @@ export function OnboardingScreen() {
 
   async function finish() {
     setIsSubmitting(true);
-    const profile = {
-      name: name.trim() || 'Alex',
-      role,
-      energyWindow,
-      todaysWin: todaysWin.trim() || 'Make progress',
-    };
+    try {
+      const profile = {
+        name: name.trim() || 'Alex',
+        role,
+        energyWindow,
+        todaysWin: todaysWin.trim() || 'Make progress',
+      };
 
-    const uid = auth.currentUser?.uid;
-    if (uid) {
-      try {
-        await setDoc(doc(db, 'users', uid), profile, { merge: true });
-      } catch (err) {
-        console.warn('Firestore save skipped:', err);
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        try {
+          await setDoc(doc(db, 'users', uid), profile, { merge: true });
+        } catch (err) {
+          console.warn('Firestore save skipped:', err);
+        }
       }
+      setProfile(profile);
+    } finally {
+      setIsSubmitting(false);
     }
-    setProfile(profile);
   }
 
   function handleNext() {
@@ -342,7 +346,8 @@ export function OnboardingScreen() {
         {/* Bottom CTA Action Bar (Matches Reference Wireframe: Text + Right Arrow) */}
         <View style={styles.bottomCtaSection}>
           <AnimatedPressable
-            style={[styles.primaryCta, animatedButtonStyle]}
+            style={[styles.primaryCta, animatedButtonStyle, isSubmitting && { opacity: 0.6 }]}
+            disabled={isSubmitting}
             onPress={handleNext}
             onPressIn={() => {
               buttonScale.value = withSpring(PRESS_SCALE, SPRING_BOUNCY);

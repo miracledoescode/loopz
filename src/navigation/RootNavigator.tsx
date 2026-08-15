@@ -41,8 +41,10 @@ export function RootNavigator() {
           >
             {({ navigation }) => (
               <AuthScreen
-                onSuccess={() => navigation.navigate('Today')}
-                onSkipToOnboarding={() => navigation.navigate('Today')}
+                onSuccess={() => {
+                  // Setting profile triggers transition to main workspace stack automatically
+                }}
+                onSkipToOnboarding={() => navigation.navigate('Onboarding')}
               />
             )}
           </Stack.Screen>

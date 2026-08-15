@@ -17,6 +17,7 @@ import {
 } from 'firebase/auth';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { auth } from '@/config/firebase';
+import { useAppStore } from '@/store/useAppStore';
 import { Mascot } from '@/components/Mascot';
 import { colors, fonts, spacing, radii } from '@/theme';
 
@@ -34,6 +35,20 @@ export function AuthScreen({ onSuccess, onSkipToOnboarding }: AuthScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const setProfile = useAppStore((s) => s.setProfile);
+  const profile = useAppStore((s) => s.profile);
+
+  const ensureDefaultProfile = () => {
+    if (!profile) {
+      setProfile({
+        name: auth.currentUser?.displayName || email.split('@')[0] || 'Alex',
+        role: 'developer',
+        energyWindow: 'morning',
+        todaysWin: 'Make progress',
+      });
+    }
+  };
 
   const handleEmailAuth = async () => {
     if (!email.trim() || !password) {
@@ -53,6 +68,7 @@ export function AuthScreen({ onSuccess, onSkipToOnboarding }: AuthScreenProps) {
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password);
       }
+      ensureDefaultProfile();
       onSuccess();
     } catch (err: any) {
       console.error('Auth error:', err);
@@ -68,7 +84,8 @@ export function AuthScreen({ onSuccess, onSkipToOnboarding }: AuthScreenProps) {
     setLoading(true);
     try {
       await signInAnonymously(auth);
-      onSkipToOnboarding();
+      ensureDefaultProfile();
+      onSuccess();
     } catch (err: any) {
       console.error('Guest auth error:', err);
       onSkipToOnboarding();
