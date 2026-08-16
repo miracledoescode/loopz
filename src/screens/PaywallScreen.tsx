@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Linking,
 } from 'react-native';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import Purchases from 'react-native-purchases';
@@ -203,6 +204,17 @@ export function PaywallScreen({ navigation }: any) {
               <Text style={styles.restoreText}>Restore purchases</Text>
             )}
           </Pressable>
+
+          {/* Legal Links */}
+          <View style={styles.legalLinksContainer}>
+            <Pressable onPress={() => Linking.openURL('https://loopz.app/terms')}>
+              <Text style={styles.legalLink}>Terms of Service</Text>
+            </Pressable>
+            <Text style={styles.legalSeparator}>·</Text>
+            <Pressable onPress={() => Linking.openURL('https://loopz.app/privacy')}>
+              <Text style={styles.legalLink}>Privacy Policy</Text>
+            </Pressable>
+          </View>
         </Animated.View>
       </ScrollView>
     </View>
@@ -365,4 +377,23 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textDecoration: 'underline',
   } as any,
+  legalLinksContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  legalLink: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.textMuted,
+    opacity: 0.8,
+  },
+  legalSeparator: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.textMuted,
+    opacity: 0.5,
+  },
 });

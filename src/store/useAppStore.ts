@@ -7,9 +7,11 @@ interface AppState {
   // ─── Profile ───────────────────────────────────────────────
   profile: UserProfile | null;
   isPro: boolean;
+  hasCompletedOnboarding: boolean;
   setIsPro: (p: boolean) => void;
   setProfile: (p: UserProfile) => void;
   clearProfile: () => void;
+  completeOnboarding: () => void;
 
   // ─── Task & Dumps ──────────────────────────────────────────
   currentTask: Task | null;
@@ -21,6 +23,7 @@ interface AppState {
 
   // ─── Sprint ────────────────────────────────────────────────
   activeMicroStepIndex: number;
+  completedSprints: Task[];
   startSprint: () => void;
   advanceMicroStep: () => void;
   completeSprint: () => void;
@@ -33,9 +36,11 @@ export const useAppStore = create<AppState>()(
       // ─── Profile ─────────────────────────────────────────
       profile: null,
       isPro: false,
+      hasCompletedOnboarding: false,
       setIsPro: (isPro) => set({ isPro }),
       setProfile: (profile) => set({ profile }),
-      clearProfile: () => set({ profile: null, isPro: false }),
+      clearProfile: () => set({ profile: null, isPro: false, hasCompletedOnboarding: false }),
+      completeOnboarding: () => set({ hasCompletedOnboarding: true }),
 
       // ─── Task & Dumps ────────────────────────────────────
       currentTask: null,
@@ -55,7 +60,8 @@ export const useAppStore = create<AppState>()(
 
       // ─── Sprint ──────────────────────────────────────────
       activeMicroStepIndex: 0,
-      startSprint: () => set({}),
+      completedSprints: [],
+      startSprint: () => set({ activeMicroStepIndex: 0 }),
 
       advanceMicroStep: () =>
         set((state) => {
@@ -76,8 +82,10 @@ export const useAppStore = create<AppState>()(
           const task = state.currentTask;
           if (!task) return {};
           const allDone = task.microSteps.map((s) => ({ ...s, done: true }));
+          const completedTask = { ...task, microSteps: allDone, status: 'done' as const };
           return {
-            currentTask: { ...task, microSteps: allDone, status: 'done' },
+            currentTask: completedTask,
+            completedSprints: [completedTask, ...state.completedSprints],
           };
         }),
 
@@ -92,7 +100,9 @@ export const useAppStore = create<AppState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         profile: state.profile,
+        hasCompletedOnboarding: state.hasCompletedOnboarding,
         currentTask: state.currentTask,
+        completedSprints: state.completedSprints,
         lastDumpText: state.lastDumpText,
         recentDumps: state.recentDumps,
         activeMicroStepIndex: state.activeMicroStepIndex,

@@ -7,11 +7,13 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useAppStore } from '@/store/useAppStore';
 import { useTasks } from '@/hooks/useTasks';
+import { useQuickIntake } from '@/hooks/useQuickIntake';
 import { BrainDumpInput } from '@/components/BrainDumpInput';
 import { PlanCard } from '@/components/PlanCard';
 import { Mascot } from '@/components/Mascot';
@@ -30,8 +32,12 @@ export function TodayScreen({ navigation }: any) {
   const resetForRerank = useAppStore((s) => s.resetForRerank);
   const { submitBrainDump, rejectAndRerank } = useTasks();
 
+  // Handle incoming Intents/Widgets
+  useQuickIntake();
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [crisisMode, setCrisisMode] = useState(false);
 
   const greeting = getGreeting();
 
@@ -40,10 +46,15 @@ export function TodayScreen({ navigation }: any) {
     audioData?: { mimeType: string; data: string }
   ) => {
     setError(null);
+    setCrisisMode(false);
     setLoading(true);
     try {
       await submitBrainDump(text, audioData);
     } catch (err: any) {
+      if (err?.message === 'CRISIS_DETECTED') {
+        setCrisisMode(true);
+        return;
+      }
       if (err?.message === 'PAYWALL') {
         navigation.navigate('Paywall');
         return;
@@ -136,8 +147,30 @@ export function TodayScreen({ navigation }: any) {
         )}
 
         {/* Primary Screen Interaction: Main Brain Dump Surface (Pulled Up) */}
-        {!currentTask || loading ? (
+        {crisisMode ? (
+          <Animated.View entering={FadeIn} style={styles.crisisContainer}>
+            <Text style={styles.crisisTitle}>You are not alone.</Text>
+            <Text style={styles.crisisBody}>
+              It sounds like you're going through a really difficult time. Please know that there are people who want to help.
+            </Text>
+            <Pressable 
+              style={styles.crisisButton} 
+              onPress={() => Linking.openURL('tel:988')}
+            >
+              <Text style={styles.crisisButtonText}>Call 988 (Lifeline)</Text>
+            </Pressable>
+            <Pressable onPress={() => setCrisisMode(false)}>
+              <Text style={styles.crisisDismissText}>Dismiss</Text>
+            </Pressable>
+          </Animated.View>
+        ) : !currentTask || loading ? (
           <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 60 }}>
+            {!loading && (
+              <Animated.View entering={FadeIn.delay(300)} style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateTitle}>Zero Inbox.</Text>
+                <Text style={styles.emptyStateSub}>What's occupying your mind right now?</Text>
+              </Animated.View>
+            )}
             <BrainDumpInput onSubmit={handleDump} loading={loading} />
           </View>
         ) : currentTask.status === 'done' ? (
@@ -221,26 +254,85 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   compactWinBadge: {
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.accentDim,
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.sm + 2,
+    backgroundColor: colors.bgElevated,
+    paddingHorizontal: spacing.md,
     paddingVertical: 6,
-    marginBottom: spacing.md,
-    alignSelf: 'flex-start',
+    borderRadius: radii.pill,
+    marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.accentGlow,
+    borderColor: colors.glassBorder,
   },
   winBadgePrefix: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  winBadgeText: {
     fontFamily: fonts.headingMedium,
     fontSize: 12,
     color: colors.accent,
   },
-  winBadgeText: {
+  crisisContainer: {
+    padding: spacing.xl,
+    backgroundColor: '#2A1A1A',
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: '#FF4444',
+    alignItems: 'center',
+    marginTop: spacing.xl,
+  },
+  crisisTitle: {
+    fontFamily: fonts.heading,
+    fontSize: 24,
+    color: '#FF4444',
+    marginBottom: spacing.sm,
+  },
+  crisisBody: {
     fontFamily: fonts.body,
-    fontSize: 13,
+    fontSize: 16,
     color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    lineHeight: 22,
+  },
+  crisisButton: {
+    backgroundColor: '#FF4444',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.md,
+    marginBottom: spacing.md,
+    width: '100%',
+    alignItems: 'center',
+  },
+  crisisButtonText: {
+    fontFamily: fonts.heading,
+    fontSize: 16,
+    color: '#FFF',
+  },
+  crisisDismissText: {
+    fontFamily: fonts.headingMedium,
+    fontSize: 14,
+    color: colors.textMuted,
+    padding: spacing.sm,
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
+  },
+  emptyStateTitle: {
+    fontFamily: fonts.heading,
+    fontSize: 32,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  emptyStateSub: {
+    fontFamily: fonts.body,
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   errorBanner: {
     backgroundColor: 'rgba(248, 113, 113, 0.12)',

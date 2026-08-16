@@ -8,13 +8,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { signOut, deleteUser } from 'firebase/auth';
 import Svg, { Path } from 'react-native-svg';
 import { db, auth } from '@/config/firebase';
 import { useAppStore } from '@/store/useAppStore';
@@ -30,6 +32,8 @@ export function EditProfileScreen() {
   const navigation = useNavigation<any>();
   const profile = useAppStore((s) => s.profile);
   const setProfile = useAppStore((s) => s.setProfile);
+  const clearProfile = useAppStore((s) => s.clearProfile);
+  const completedSprints = useAppStore((s) => s.completedSprints || []);
 
   const [name, setName] = useState(profile?.name ?? '');
   const [role, setRole] = useState<Role>(profile?.role ?? 'developer');
@@ -60,6 +64,51 @@ export function EditProfileScreen() {
     }
     setProfile(updated);
     navigation.goBack();
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOut(auth);
+      clearProfile();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently erased.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const user = auth.currentUser;
+              if (user) {
+                // Delete user's Firestore document
+                await deleteDoc(doc(db, 'users', user.uid));
+                // Delete user from Firebase Auth
+                await deleteUser(user);
+                clearProfile();
+              }
+            } catch (err: any) {
+              console.error('Delete account error:', err);
+              if (err.code === 'auth/requires-recent-login') {
+                Alert.alert(
+                  'Authentication Required',
+                  'Please sign out and sign in again to verify your identity before deleting your account.'
+                );
+              } else {
+                Alert.alert('Error', 'Failed to delete account. Please try again later.');
+              }
+            }
+          },
+        },
+      ]
+    );
   }
 
   return (
@@ -156,6 +205,24 @@ export function EditProfileScreen() {
             </View>
           </View>
 
+          {/* Group 2.5: Progress History (Task 13) */}
+          {completedSprints.length > 0 && (
+            <View style={styles.groupSection}>
+              <Text style={styles.groupTitle}>PAST SPRINTS</Text>
+              <View style={styles.historyContainer}>
+                {completedSprints.slice(0, 5).map((sprint, i) => (
+                  <View key={`sprint-${i}`} style={styles.historyRow}>
+                    <Text style={styles.historyEmoji}>✅</Text>
+                    <Text style={styles.historyTitle} numberOfLines={1}>{sprint.title}</Text>
+                  </View>
+                ))}
+                {completedSprints.length > 5 && (
+                  <Text style={styles.historyMore}>+ {completedSprints.length - 5} more</Text>
+                )}
+              </View>
+            </View>
+          )}
+
           {/* Group 3: Primary Action directly after the form */}
           <View style={styles.ctaContainer}>
             <AnimatedPressable
@@ -183,6 +250,25 @@ export function EditProfileScreen() {
                 <Path d="m12 5 7 7-7 7" />
               </Svg>
             </AnimatedPressable>
+          </View>
+
+          {/* Account Actions */}
+          <View style={styles.accountActionsContainer}>
+            {auth.currentUser?.isAnonymous ? (
+              <Pressable
+                style={styles.cta}
+                onPress={() => navigation.navigate('Auth')}
+              >
+                <Text style={styles.ctaText}>Create Account</Text>
+              </Pressable>
+            ) : (
+              <Pressable style={styles.secondaryAction} onPress={handleSignOut}>
+                <Text style={styles.secondaryActionText}>Sign Out</Text>
+              </Pressable>
+            )}
+            <Pressable style={styles.destructiveAction} onPress={handleDeleteAccount}>
+              <Text style={styles.destructiveActionText}>Delete account</Text>
+            </Pressable>
           </View>
         </View>
       </ScrollView>
@@ -292,6 +378,33 @@ const styles = StyleSheet.create({
     color: '#F4F4F5',
     fontFamily: fonts.heading,
   },
+  historyContainer: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.bgInput,
+    borderRadius: radii.md,
+    padding: spacing.md,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  historyEmoji: {
+    fontSize: 16,
+    marginRight: spacing.sm,
+  },
+  historyTitle: {
+    fontFamily: fonts.body,
+    fontSize: 15,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  historyMore: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+  },
   ctaContainer: {
     marginTop: spacing.md,
   },
@@ -312,5 +425,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#F4F4F5',
     letterSpacing: -0.2,
+  },
+  accountActionsContainer: {
+    marginTop: spacing.xl,
+    gap: spacing.md,
+    alignItems: 'center',
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.glassBorder,
+  },
+  secondaryAction: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  secondaryActionText: {
+    fontFamily: fonts.headingMedium,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  destructiveAction: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  destructiveActionText: {
+    fontFamily: fonts.headingMedium,
+    fontSize: 14,
+    color: colors.error,
   },
 });

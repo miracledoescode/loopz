@@ -23,6 +23,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AppBackground } from '@/components/AppBackground';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { useAppStore } from '@/store/useAppStore';
+import { PostHogProvider } from 'posthog-react-native';
+import { posthog } from '@/config/posthog';
 
 const RC_API_KEY_GOOGLE = 'goog_grIaXTCdlranHXinEgHTONrYpgH';
 
@@ -47,77 +49,107 @@ export default function App() {
 
   const handleAuth = useCallback(async () => {
     try {
-      setAuthError(null);
-      const userCred = await signInAnonymously(auth);
-      
-      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-      Purchases.configure({ apiKey: RC_API_KEY_GOOGLE, appUserID: userCred.user.uid });
+      let isResolved = false;
 
-      const customerInfo = await Purchases.getCustomerInfo();
-      if (typeof customerInfo.entitlements.active['pro'] !== 'undefined') {
-        useAppStore.getState().setIsPro(true);
-      }
-
-      Purchases.addCustomerInfoUpdateListener((info) => {
-        if (typeof info.entitlements.active['pro'] !== 'undefined') {
-          useAppStore.getState().setIsPro(true);
-        } else {
-          useAppStore.getState().setIsPro(false);
+      const unsubscribe = auth.onAuthStateChanged(
+        async (user: any) => {
+          isResolved = true;
+          if (!user && !useAppStore.getState().hasCompletedOnboarding) {
+            try {
+              await signInAnonymously(auth);
+            } catch (err) {
+              console.error('Initial anon auth failed:', err);
+            }
+          }
+          setAuthReady(true);
+        },
+        (error: any) => {
+          isResolved = true;
+          console.error('Auth state error:', error);
+          setAuthError(error.message);
+          setAuthReady(true);
         }
-      });
+      );
 
+      // Failsafe: if Firebase Auth hangs completely (e.g. AsyncStorage promise lockup),
+      // force resolve after 15 seconds so the app doesn't stay black forever.
+      setTimeout(() => {
+        if (!isResolved) {
+          console.error('Firebase Auth initialization timed out.');
+          setAuthError('Authentication service timed out. Please check your network and API keys.');
+          setAuthReady(true);
+        }
+      }, 15000);
+
+      return () => unsubscribe();
+    } catch (error: any) {
+      console.error('Auth setup error:', error);
+      setAuthError(error.message);
       setAuthReady(true);
-    } catch (err: any) {
-      console.error('Auth error:', err);
-      setAuthError(err?.message || "Couldn't connect to loopz. Please check your network and try again.");
     }
   }, []);
 
   useEffect(() => {
-    handleAuth();
+    let unmountFn: (() => void) | undefined;
+    handleAuth().then((unsub) => {
+      if (typeof unsub === 'function') unmountFn = unsub;
+    });
+    return () => {
+      if (unmountFn) unmountFn();
+    };
   }, [handleAuth]);
 
-  const handleBypass = useCallback(() => {
-    setAuthError(null);
-    setAuthReady(true);
+  useEffect(() => {
+    // Configure RevenueCat
+    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+    Purchases.configure({ apiKey: RC_API_KEY_GOOGLE });
+
+    const checkProStatus = async () => {
+      try {
+        const info = await Purchases.getCustomerInfo();
+        if (typeof info.entitlements.active['pro'] !== 'undefined') {
+          useAppStore.getState().setIsPro(true);
+        }
+      } catch (err) {
+        console.warn('Failed to check RC status', err);
+      }
+    };
+    checkProStatus();
   }, []);
 
-  const onLayoutReady = useCallback(async () => {
+  const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded && authReady) {
       try {
         await SplashScreen.hideAsync();
-      } catch {}
+      } catch (e) {
+        // Ignored
+      }
     }
   }, [fontsLoaded, authReady]);
 
-  if (authError) {
+  if (!fontsLoaded || !authReady) {
     return (
-      <View style={styles.root} onLayout={onLayoutReady}>
-        <StatusBar style="light" />
-        <ErrorScreen
-          title="Connection Failed"
-          message="Couldn't connect to loopz. Please check your network connection and try again."
-          details={authError}
-          onRetry={handleAuth}
-          onBypass={handleBypass}
-          retryLabel="Try Reconnecting"
-          showBypass={true}
-        />
+      <View style={styles.loading} onLayout={() => {
+        if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
+      }}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
-  if (!fontsLoaded || !authReady) {
+  if (authError) {
+    // Fonts are loaded and auth is ready (with an error), so hide splash screen manually
+    SplashScreen.hideAsync().catch(() => {});
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={colors.accent} size="large" />
+      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <ErrorScreen details={authError} onRetry={() => { handleAuth(); }} />
       </View>
     );
   }
 
   return (
     <ErrorBoundary>
-      <View style={styles.root} onLayout={onLayoutReady}>
+      <View style={styles.root} onLayout={onLayoutRootView}>
         <AppBackground opacity={0.14}>
           <NavigationContainer
             theme={{
@@ -138,8 +170,10 @@ export default function App() {
               },
             }}
           >
-            <StatusBar style="light" />
-            <RootNavigator />
+            <PostHogProvider client={posthog} autocapture={{ captureScreens: false }}>
+              <StatusBar style="light" />
+              <RootNavigator />
+            </PostHogProvider>
           </NavigationContainer>
         </AppBackground>
       </View>

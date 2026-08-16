@@ -64,7 +64,22 @@ export function AuthScreen({ onSuccess, onSkipToOnboarding }: AuthScreenProps) {
     setLoading(true);
     try {
       if (mode === 'signup') {
-        await createUserWithEmailAndPassword(auth, email.trim(), password);
+        if (auth.currentUser?.isAnonymous) {
+          // Link the anonymous account to an email/password credential to keep their data
+          import('firebase/auth').then(async ({ EmailAuthProvider, linkWithCredential }) => {
+            const credential = EmailAuthProvider.credential(email.trim(), password);
+            await linkWithCredential(auth.currentUser!, credential);
+            ensureDefaultProfile();
+            onSuccess();
+          }).catch((err) => {
+             console.error('Account linking failed:', err);
+             setError(err?.message || 'Failed to link account.');
+             setLoading(false);
+          });
+          return; // Return early, the promise handles the rest
+        } else {
+          await createUserWithEmailAndPassword(auth, email.trim(), password);
+        }
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password);
       }

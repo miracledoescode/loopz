@@ -39,7 +39,7 @@ export function useTimer(autoStart = true): TimerState {
 
   const reset = useCallback(() => {
     setElapsed(0);
-    setIsPaused(false);
+    setIsPaused(true);
   }, []);
 
   return { elapsed, isPaused, toggle, reset };

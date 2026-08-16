@@ -10,6 +10,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
+import { useKeepAwake } from 'expo-keep-awake';
+import { useAudioPlayer } from 'expo-audio';
+import LottieView from 'lottie-react-native';
 import { useAppStore } from '@/store/useAppStore';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimer } from '@/hooks/useTimer';
@@ -22,6 +25,7 @@ import { SPRING_BOUNCY, PRESS_SCALE } from '@/theme/animations';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function SprintScreen() {
+  useKeepAwake();
   const navigation = useNavigation<any>();
   const currentTask = useAppStore((s) => s.currentTask);
   const activeMicroStepIndex = useAppStore((s) => s.activeMicroStepIndex);
@@ -33,6 +37,19 @@ export function SprintScreen() {
   const { elapsed, isPaused, toggle, reset } = useTimer(true);
   const [reranking, setReranking] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+
+  // Initialize focus audio
+  const focusAudio = useAudioPlayer('https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=brown-noise-8176.mp3');
+  focusAudio.loop = true;
+
+  // Sync audio with play/pause state
+  React.useEffect(() => {
+    if (!isPaused && !showCelebration) {
+      focusAudio.play();
+    } else {
+      focusAudio.pause();
+    }
+  }, [isPaused, showCelebration]);
 
   const doneScale = useSharedValue(1);
   const pauseScale = useSharedValue(1);
@@ -84,6 +101,12 @@ export function SprintScreen() {
   if (showCelebration) {
     return (
       <View style={styles.container}>
+        <LottieView
+          autoPlay
+          loop={false}
+          style={{ width: '100%', height: '100%', position: 'absolute', zIndex: -1 }}
+          source={require('../../assets/confetti.json')}
+        />
         <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.celebrationContainer}>
           <Text style={styles.celebrationEmoji}>🎯</Text>
           <Text style={styles.celebrationTitle}>Sprint complete</Text>

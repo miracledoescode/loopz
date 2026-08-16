@@ -33,6 +33,7 @@ import { LoadingOrb } from './LoadingOrb';
 interface Props {
   onSubmit: (text: string, audioData?: { mimeType: string; data: string }) => void;
   loading: boolean;
+  hideHeader?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -44,7 +45,7 @@ const QUICK_PROMPTS = [
   "Ideas I don't want to forget",
 ];
 
-export function BrainDumpInput({ onSubmit, loading }: Props) {
+export function BrainDumpInput({ onSubmit, loading, hideHeader = false }: Props) {
   const [text, setText] = useState('');
   const inputRef = useRef<TextInput>(null);
   const buttonScale = useSharedValue(1);
@@ -84,7 +85,20 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
         playsInSilentMode: true,
       });
 
-      await recorder.prepareToRecordAsync();
+      // Add a small delay to allow the OS to route the microphone hardware.
+      // On Android, recording immediately after a permission grant or mode switch
+      // often results in a silent audio file, which causes the AI to ignore it!
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      try {
+        await recorder.prepareToRecordAsync();
+      } catch (prepErr: any) {
+        // If it's already prepared from a previous recording session in this mount, just ignore the error and proceed.
+        if (!prepErr.message?.includes('already been prepared')) {
+          throw prepErr;
+        }
+      }
+
       recorder.record();
       setIsRecording(true);
       setIsPaused(false);
@@ -134,6 +148,7 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
     setIsPaused(false);
     recordAnim.value = withTiming(0, { duration: 300 });
     try {
+      // Android MediaRecorder throws RuntimeException if stopped too quickly (<1s)
       await recorder.stop();
       await setAudioModeAsync({ allowsRecording: false });
       const uri = recorder.uri;
@@ -142,11 +157,19 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
           encoding: 'base64',
         });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const submitText = text.trim() || 'Voice brain dump';
+        const submitText = text.trim() || 'Please listen to the attached audio file for my brain dump.';
         onSubmit(submitText, { mimeType: 'audio/mp4', data: base64 });
+      } else {
+        throw new Error('No URI returned');
       }
     } catch (err) {
-      console.error('Failed to stop recording', err);
+      console.warn('Failed to stop recording cleanly (likely too short). Submitting text anyway:', err);
+      // Even if audio fails, we MUST submit the text if they typed something!
+      if (text.trim().length > 0) {
+        onSubmit(text.trim());
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     }
   }
 
@@ -174,6 +197,19 @@ export function BrainDumpInput({ onSubmit, loading }: Props) {
 
   return (
     <View style={styles.container}>
+      {/* Dynamic Header */}
+      {!hideHeader && (
+        <View style={styles.headerSection}>
+          <Text style={styles.prompt}>
+            {recentDumps.length > 0 ? "What's next?" : "Clear your mind."}
+          </Text>
+          <Text style={styles.subtext}>
+            {isRecording 
+              ? "Listening..." 
+              : "Type or talk. We'll organize the chaos."}
+          </Text>
+        </View>
+      )}
 
       {/* Writing Surface with Taller Textarea & Embedded Mic */}
       <View style={styles.inputWrapper}>
@@ -331,6 +367,7 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.md,
     marginTop: spacing.xs,
+    width: '100%',
   },
   headerSection: {
     alignItems: 'flex-start',
@@ -353,15 +390,18 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.bgInput,
     overflow: 'hidden',
-    borderWidth: 0,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    width: '100%',
   },
   input: {
-    minHeight: 160,
+    minHeight: 140,
     padding: spacing.md,
+    paddingTop: spacing.md,
     fontFamily: fonts.body,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
-    lineHeight: 22,
+    lineHeight: 24,
     borderWidth: 0,
   },
   inputFooter: {
@@ -401,11 +441,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.bgCard,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
   },
   ctaDisabled: {
     backgroundColor: '#1E202A',

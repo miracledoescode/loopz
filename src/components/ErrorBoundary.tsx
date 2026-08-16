@@ -22,6 +22,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error in component tree:', error, errorInfo);
+    // If a fatal error occurs before the app mounts, drop the splash screen lock
+    // so the user can actually see the error screen underneath.
+    import('expo-splash-screen').then(SplashScreen => {
+      SplashScreen.hideAsync().catch(() => {});
+    });
   }
 
   private handleReset = () => {

@@ -18,27 +18,49 @@ export async function rankTaskLocal(
 
   const idToken = await currentUser.getIdToken();
 
-  const response = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${idToken}`,
-    },
-    body: JSON.stringify({
-      rawText,
-      role: profile.role,
-      energyWindow: profile.energyWindow,
-      todaysWin: profile.todaysWin,
-      excludedTasks,
-      audioData,
-    }),
-  });
+  const maxRetries = 2;
+  let attempt = 0;
+  let response: Response | null = null;
 
-  if (!response.ok) {
+  while (attempt < maxRetries) {
+    try {
+      response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          rawText,
+          role: profile.role,
+          energyWindow: profile.energyWindow,
+          todaysWin: profile.todaysWin,
+          excludedTasks,
+          audioData,
+        }),
+      });
+
+      if (response.ok) break; // Success!
+
+      // If it's a 502/503/504 (Service Unavailable/Bad Gateway), retry
+      if (![502, 503, 504].includes(response.status)) {
+        break; // Don't retry client errors (400, 401, etc)
+      }
+    } catch (err) {
+      // Network failure, will retry
+    }
+
+    attempt++;
+    if (attempt < maxRetries) {
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Wait 1.5s before retry
+    }
+  }
+
+  if (!response || !response.ok) {
     let errMessage = 'Worker error';
     try {
-      const errJson = await response.json();
-      errMessage = errJson.error || errMessage;
+      const errJson = await response?.json();
+      errMessage = errJson?.error || errMessage;
     } catch {
       // Ignored
     }
@@ -46,6 +68,11 @@ export async function rankTaskLocal(
   }
 
   const result = await response.json();
+  
+  if (result.isCrisis) {
+    throw new Error('CRISIS_DETECTED');
+  }
+
   const taskData = result.task;
 
   if (!auth.currentUser) {

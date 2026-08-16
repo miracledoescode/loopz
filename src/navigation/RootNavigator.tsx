@@ -22,6 +22,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const profile = useAppStore((s) => s.profile);
+  const hasCompletedOnboarding = useAppStore((s) => s.hasCompletedOnboarding);
 
   return (
     <Stack.Navigator
@@ -31,26 +32,22 @@ export function RootNavigator() {
         animation: 'fade',
       }}
     >
-      {!profile ? (
-        <>
-          {/* Step 1: Onboarding starts FIRST */}
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-
-          {/* Step 2: Account Login / Signup screen */}
-          <Stack.Screen
-            name="Auth"
-            options={{ animation: 'slide_from_right' }}
-          >
-            {({ navigation }) => (
-              <AuthScreen
-                onSuccess={() => {
-                  // Setting profile triggers transition to main workspace stack automatically
-                }}
-                onSkipToOnboarding={() => navigation.navigate('Onboarding')}
-              />
-            )}
-          </Stack.Screen>
-        </>
+      {!hasCompletedOnboarding ? (
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+      ) : !profile ? (
+        <Stack.Screen
+          name="Auth"
+          options={{ animation: 'slide_from_right' }}
+        >
+          {({ navigation }) => (
+            <AuthScreen
+              onSuccess={() => {
+                // Setting profile triggers transition to main workspace stack automatically
+              }}
+              onSkipToOnboarding={() => {}}
+            />
+          )}
+        </Stack.Screen>
       ) : (
         <>
           {/* Main Workspace once Profile is set */}
@@ -80,6 +77,22 @@ export function RootNavigator() {
               gestureEnabled: false,
             }}
           />
+          <Stack.Screen
+            name="Auth"
+            options={{
+              animation: 'slide_from_bottom',
+              presentation: 'fullScreenModal',
+            }}
+          >
+            {({ navigation }) => (
+              <AuthScreen
+                onSuccess={() => {
+                  navigation.goBack();
+                }}
+                onSkipToOnboarding={() => navigation.goBack()}
+              />
+            )}
+          </Stack.Screen>
         </>
       )}
     </Stack.Navigator>

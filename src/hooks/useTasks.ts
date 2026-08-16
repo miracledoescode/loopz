@@ -21,7 +21,8 @@ export function useTasks() {
     rawText: string,
     audioData?: { mimeType: string; data: string }
   ): Promise<Task> {
-    if (!profile) throw new Error('Profile required');
+    const currentProfile = useAppStore.getState().profile;
+    if (!currentProfile) throw new Error('Profile required');
 
     // ── Paywall gate ───────────────────────────────────────────
     const isPro = useAppStore.getState().isPro;
@@ -38,7 +39,7 @@ export function useTasks() {
 
     setLastDumpText(rawText);
     addRecentDump(rawText);
-    const task = await rankTaskLocal(rawText, profile, [], audioData);
+    const task = await rankTaskLocal(rawText, currentProfile, [], audioData);
     setCurrentTask(task);
     return task;
   }
@@ -47,9 +48,11 @@ export function useTasks() {
    * "This isn't it" — quietly re-rank.
    */
   async function rejectAndRerank(rejectedTitle: string): Promise<Task> {
-    if (!profile) throw new Error('Profile required');
+    const currentProfile = useAppStore.getState().profile;
+    const currentLastDumpText = useAppStore.getState().lastDumpText;
+    if (!currentProfile) throw new Error('Profile required');
     resetForRerank();
-    const task = await rankTaskLocal(lastDumpText, profile, [rejectedTitle]);
+    const task = await rankTaskLocal(currentLastDumpText, currentProfile, [rejectedTitle]);
     setCurrentTask(task);
     return task;
   }
@@ -58,9 +61,11 @@ export function useTasks() {
    * Called when all micro-steps in the current task are done.
    */
   async function onMicroStepsExhausted(): Promise<Task | null> {
-    if (!profile || !lastDumpText) return null;
+    const currentProfile = useAppStore.getState().profile;
+    const currentLastDumpText = useAppStore.getState().lastDumpText;
+    if (!currentProfile || !currentLastDumpText) return null;
     resetForRerank();
-    const task = await rankTaskLocal(lastDumpText, profile);
+    const task = await rankTaskLocal(currentLastDumpText, currentProfile);
     setCurrentTask(task);
     return task;
   }
